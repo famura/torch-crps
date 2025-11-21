@@ -1,0 +1,80 @@
+name: Continuous Integration
+
+on:
+    pull_request:
+        types: [opened, ready_for_review, reopened, synchronize]
+    workflow_call:
+    workflow_dispatch:
+
+concurrency:
+    group: ${{ github.job }}/${{ github.workflow }}/${{ github.head_ref || github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    ci-default-python-version:
+        name: Default Python Version
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+            pull-requests: write
+        timeout-minutes: 120
+
+        steps:
+            - name: Check out repository
+              uses: actions/checkout@v5
+
+            - name: Set up uv
+              uses: astral-sh/setup-uv@v7
+
+            - name: Lint & test
+              uses: ./.github/actions/lint-test
+
+            - name: Add coverage comment
+              if: github.event_name == 'pull_request'
+              uses: MishaKav/pytest-coverage-comment@v1
+              with:
+                  coverage-path-prefix: "torch_crps/"
+                  junitxml-path: pytest.xml
+                  pytest-xml-coverage-path: coverage.xml
+
+            - name: Build & deploy temporary docs
+              if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
+              uses: ./.github/actions/publish-docs
+              with:
+                  alias: pr-${{ github.event.number }}
+                  version: next-pr-${{ github.event.number }}
+
+            - name: Add docs comment
+              if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
+              uses: marocchino/sticky-pull-request-comment@v2.9.4
+              with:
+                  header: docs-comment
+                  message: |
+                      :books: Created [temporary docs](https://famura.github.io/${{ github.repository }}/pr-${{ github.event.number }}).
+
+                      Useful URLs:
+
+                      - [Coverage](https://famura.github.io/${{ github.repository }}/pr-${{ github.event.number }}/exported/coverage)
+                      - [Tests](https://famura.github.io/${{ github.repository }}/pr-${{ github.event.number }}/exported/tests)
+
+    ci-other-python-versions:
+        if: github.event.pull_request.draft == false
+        name: Other Python Versions
+        runs-on: ubuntu-latest
+        strategy:
+            matrix:
+                python-version: [3.13]
+        timeout-minutes: 120
+
+        steps:
+            - name: Check out repository
+              uses: actions/checkout@v5
+
+            - name: Set up uv
+              uses: astral-sh/setup-uv@v7
+
+            - name: Set Python version to ${{ matrix.python-version }}
+              run: uv python pin ${{ matrix.python-version }}
+
+            - name: Lint & test
+              uses: ./.github/actions/lint-test

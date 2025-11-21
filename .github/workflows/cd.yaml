@@ -1,0 +1,104 @@
+name: Continuous Deployment
+
+on:
+    push:
+        branches: [main]
+    workflow_dispatch:
+        inputs:
+            bumped-version-part:
+                description: "The version part to bump."
+                type: choice
+                options:
+                    - major
+                    - minor
+                    - patch
+                default: patch
+                required: true
+
+concurrency:
+    group: ${{ github.workflow }}/${{ github.head_ref || github.ref }}
+    cancel-in-progress: true
+
+jobs:
+    bump-version:
+        name: Bump Version
+        runs-on: ubuntu-latest
+        container: docker:git
+        permissions:
+            contents: write
+        timeout-minutes: 10
+        steps:
+            - name: Install prerequisites
+              run: apk add nodejs
+
+            - name: Check out repository
+              uses: actions/checkout@v5
+
+            - name: Bump version and push tag
+              id: version
+              uses: mathieudutour/github-tag-action@v6.2
+              with:
+                  default_bump: ${{ github.event.inputs.bumped-version-part || 'patch' }}
+                  github_token: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Add version info
+              run: echo "Bumped ${VERSION_PART} version part from ${OLD_TAG} to ${NEW_TAG}." >> $GITHUB_STEP_SUMMARY
+              env:
+                  VERSION_PART: ${{ steps.version.outputs.release_type }}
+                  OLD_TAG: ${{ steps.version.outputs.previous_tag }}
+                  NEW_TAG: ${{ steps.version.outputs.new_tag }}
+
+    ci:
+        name: CI
+        needs: bump-version
+        uses: ./.github/workflows/ci.yaml
+        secrets: inherit
+        permissions:
+            contents: write
+            pull-requests: write
+
+    deploy:
+        name: Deploy Docs
+        needs: ci
+        if: github.repository == 'famura/torch-crps'
+        runs-on: ubuntu-latest
+        timeout-minutes: 30
+        permissions:
+            contents: write
+        steps:
+            - name: Check out repository
+              uses: actions/checkout@v5
+              with:
+                  fetch-depth: 0
+
+            - name: Set up uv
+              uses: astral-sh/setup-uv@v7
+
+            - name: Lint & test
+              uses: ./.github/actions/lint-test
+
+            - name: Build & publish docs
+              uses: ./.github/actions/publish-docs
+
+    publish-pypi:
+        name: Publish to PyPI
+        needs: deploy
+        runs-on: ubuntu-latest
+        environment: release
+        timeout-minutes: 15
+        permissions:
+            id-token: write
+        steps:
+            - name: Check out repository
+              uses: actions/checkout@v5
+              with:
+                  fetch-depth: 0 # it is necessary for versioningit to get full git history
+
+            - name: Set up uv
+              uses: astral-sh/setup-uv@v7
+
+            - name: Build package
+              run: uv build
+
+            - name: Publish to PyPI
+              uses: pypa/gh-action-pypi-publish@release/v1

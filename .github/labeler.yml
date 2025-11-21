@@ -1,0 +1,27 @@
+"area: docs":
+  - changed-files:
+      - any-glob-to-any-file:
+          - docs/**
+          - mkdocs.yml
+          - readme.md
+
+"area: project":
+  - changed-files:
+      - any-glob-to-any-file:
+          - .github/**
+          - .pre-commit-config.yaml
+          - .python-version
+          - .vscode/**
+          - license.md
+          - pyproject.toml
+          - uv.lock
+
+"area: source":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "torch_crps/**"
+
+"area: cli":
+  - changed-files:
+      - any-glob-to-any-file:
+          - torch_crps/cli/**

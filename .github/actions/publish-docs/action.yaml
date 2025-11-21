@@ -1,0 +1,32 @@
+name: "Publish Docs"
+description: "Build and publish the documentation."
+inputs:
+  version:
+    description: "docs version"
+    required: true
+    default: ""
+  alias:
+    description: "version alias"
+    required: true
+    default: "latest"
+runs:
+  using: "composite"
+  steps:
+    - name: Determine version
+      run: |
+        if [ "${{ inputs.version }}" != "" ]; then
+          VERSION=${{ inputs.version }}
+        else
+          VERSION=$(uv run --no-dev python -c "from importlib.metadata import version; print(version('torch-crps'))")
+        fi
+        echo "DOCS_VERSION=$(echo ${VERSION} | cut --delimiter="." --fields=1,2)" >> $GITHUB_ENV
+      shell: bash
+
+    - name: Configure Git
+      uses: ./.github/actions/configure-git
+
+    - name: Build & publish docs
+      run: |
+        git fetch origin gh-pages:gh-pages
+        uv run --only-dev mike deploy --push --update-aliases ${{ env.DOCS_VERSION }} ${{ inputs.alias }}
+      shell: sh

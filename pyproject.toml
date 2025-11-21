@@ -1,0 +1,164 @@
+[build-system]
+build-backend = "hatchling.build"
+requires = ["hatchling", "versioningit"]
+
+[dependency-groups]
+dev = [
+  "genbadge[coverage,tests]",
+  "git-changelog",
+  "mike>=2.0.0",
+  "mkdocs-git-revision-date-localized-plugin",
+  "mkdocs-macros-plugin",
+  "mkdocs-material",
+  "mkdocs-minify-plugin",
+  "mkdocs-typer",
+  "mkdocstrings-python",
+  "pip-licenses",
+  "pre-commit",
+  "pytest-cov",
+  "pytest-html",
+  "pytest-xdist",
+  "pytest",
+  "seaborn>=0.13.2",
+  "scipy>=1.16.3",
+]
+examples = [
+  "scikit-learn>=1.7.2",
+]
+
+[project.optional-dependencies]
+examples = [
+  "scikit-learn>=1.7.2",
+]
+
+[project]
+authors = [{name = "Fabio Muratore", email = "accounts@famura.net"}]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Natural Language :: English",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering",
+]
+dependencies = [
+  "torch>=2.7",
+]
+description = "Implementations of the CRPS using PyTorch"
+dynamic = ["version"]
+license = "MIT"
+maintainers = [{name = "Fabio Muratore", email = "accounts@famura.net"}]
+name = "torch-crps"
+readme = "readme.md"
+requires-python = ">=3.11"
+
+[project.urls]
+homepage = "https://famura.github.io/torch-crps"
+source = "https://github.com/famura/torch-crps"
+
+# -----
+# Tools
+# -----
+[tool.coverage.html]
+directory = "docs/exported/coverage"
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+skip_empty = true
+
+[tool.coverage.run]
+branch = true
+source = ["torch_crps"]
+
+[tool.hatch.version]
+default-version = "0.0.0"
+source = "versioningit"
+
+[tool.hatch.version.format]
+dirty = "{base_version}"
+distance = "{base_version}"
+distance-dirty = "{base_version}"
+
+[tool.mypy]
+ignore_missing_imports = true # when no stubs are available, e.g. for matplotlib or tabulate
+pretty = true
+show_error_context = true
+show_traceback = true
+
+[tool.pytest.ini_options]
+addopts = [
+  "--capture=tee-sys",
+  "--cov-config=pyproject.toml",
+  "--cov-report=html",
+  "--cov-report=term",
+  "--cov-report=xml",
+  "--html=docs/exported/tests/index.html",
+  "--junit-xml=pytest.xml",
+  "--self-contained-html",
+  "--showlocals",
+  "-ra",
+]
+markers = [
+  "needs_cuda: the marked tests require a GPU with CUDA and is skipped otherwise",
+  "plot: marks tests that generate plots/visualizations (deselect with '-m \"not plot\"')",
+]
+testpaths = ["tests"]
+
+[tool.ruff]
+exclude = [
+  ".coverage",
+  ".mypy_cache",
+  ".pytest_cache",
+  ".ruff_cache",
+  ".site",
+  ".venv",
+  "coverage.xml",
+  "docs/exported",
+  "pytest.xml",
+]
+fix = true
+line-length = 120
+
+[tool.ruff.lint]
+extend-select = [
+  "ANN", # flake8-annotations
+  "B", # flake8-bugbear
+  "C4", # flake8-comprehensions
+  "C90", # mccabe
+  "CPY", # flake8-copyright
+  "D", # pydocstyle
+  "FURB", # refurb
+  "I", # isort
+  "N", # pep8-naming
+  "PERF", # Perflint
+  "PL", # pylint
+  "RUF", # Ruff-specific rules
+  "S", # flake8-bandit
+  "SIM", # flake8-simplify
+  "UP", # pyupgrade
+  "W", # pycodestyle (warning)
+]
+ignore = [
+  "CPY001", # missing copyright notice at the top of the file
+  "D100", # missing docstring in public module
+  "D104", # missing docstring in public package
+  "PLR", # pylint refactor
+]
+preview = true
+
+[tool.ruff.lint.per-file-ignores]
+"torch_crps/cli/*" = [
+  "C901", # too much complexity
+  "PLC0415", # `import` should be at the top-level of a file
+]
+"tests/*" = [
+  "ANN201", # return type information
+  "D", # pydocstyle
+  "PLC2701", # private name import from external module
+  "S101", # use of assert detected
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"

@@ -1,0 +1,61 @@
+description: Submit a bug report.
+labels: ["type: bug"]
+name: Bug Report
+
+body:
+  - attributes:
+      value: |
+        ## Bug Report
+
+        Thank zou for taking the time to prepare and submit this bug report!
+    type: markdown
+
+  - attributes:
+      label: Basics
+      description: Please check all boxes below.
+      options:
+        - label: I could not find any existing issues for my bug
+          required: true
+        - label: >
+            I have selected at least one `area:` label
+          required: true
+    type: checkboxes
+
+  - attributes:
+      label: Command?
+      description: What's the command you tried to run? It will be automatically rendered as code.
+      render: shell
+    type: textarea
+    validations:
+      required: true
+
+  - attributes:
+      label: Expected Behavior?
+      description: What's the expected behavior of that command?
+    type: textarea
+    validations:
+      required: true
+
+  - attributes:
+      label: Actual Behavior?
+      description: What's the actual behavior of that command?
+    type: textarea
+    validations:
+      required: true
+
+  - attributes:
+      label: Logs?
+      description: Paste the logs here. Those will be automatically rendered as code.
+      render: shell
+    id: logs
+    type: textarea
+    validations:
+      required: true
+
+  - attributes:
+      label: Additional Information?
+      description: Is there any additional information that did not fit the points above?
+      placeholder: |
+        - Related issues or PRs
+        - Screenshots
+    type: textarea

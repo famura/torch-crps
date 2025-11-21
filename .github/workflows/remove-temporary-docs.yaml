@@ -1,0 +1,36 @@
+name: Remove Temporary Docs
+
+on:
+    pull_request:
+        types: [closed]
+
+jobs:
+    remove-temporary-docs:
+        name: Remove Temporary Docs
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write
+            pull-requests: write
+        timeout-minutes: 30
+
+        steps:
+            - name: Check out repository
+              uses: actions/checkout@v5
+
+            - name: Set up uv
+              uses: astral-sh/setup-uv@v7
+
+            - name: Configure Git
+              uses: ./.github/actions/configure-git
+
+            - name: Remove temporary docs
+              run: |
+                  VERSION=next-pr-${{ github.event.number }}
+                  git fetch origin gh-pages:gh-pages
+                  uv run --only-dev mike delete --push ${VERSION}
+
+            - name: Remove docs comment
+              uses: marocchino/sticky-pull-request-comment@v2.9.4
+              with:
+                  delete: true
+                  header: docs-comment

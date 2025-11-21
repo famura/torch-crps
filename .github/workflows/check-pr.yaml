@@ -1,0 +1,44 @@
+name: Check PR
+
+on:
+    pull_request:
+        types: [edited, opened, ready_for_review, reopened, synchronize]
+
+concurrency:
+    group: ${{ github.job }}/${{ github.workflow }}/${{ github.head_ref || github.ref }}
+    cancel-in-progress: true
+
+permissions:
+    contents: read
+    pull-requests: write
+
+jobs:
+    labels:
+        name: Labels
+        runs-on: ubuntu-latest
+        container: ubuntu:latest
+        steps:
+            - name: Label areas
+              uses: actions/labeler@v6
+              with:
+                  repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+            - name: Label size
+              uses: BedrockStreaming/pr-size-labeler@v2.0.0
+              with:
+                  token: ${{ secrets.GITHUB_TOKEN }}
+                  xs_diff: 20
+                  xs_files: 2
+                  xs_label: "size: xs"
+                  s_diff: 100
+                  s_files: 5
+                  s_label: "size: s"
+                  m_diff: 250
+                  m_files: 10
+                  m_label: "size: m"
+                  l_diff: 500
+                  l_files: 20
+                  l_label: "size: l"
+                  xl_diff: 750
+                  xl_files: 30
+                  xl_label: "size: xl"

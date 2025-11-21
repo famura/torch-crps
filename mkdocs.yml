@@ -1,0 +1,136 @@
+copyright: "Fabio Muratore"
+edit_uri: "edit/main/docs"
+repo_name: "torch-crps"
+repo_url: "https://github.com/famura/torch-crps"
+site_author: "Fabio Muratore"
+site_description: "Implementations of the CRPS using PyTorch"
+site_dir: .site
+site_name: "torch-crps"
+site_url: "https://famura.github.io/torch-crps"
+
+nav:
+  - Getting Started:
+      - index.md
+      - Installation: installation.md
+  - Reference: reference.md
+  - Changelog: changelog.md
+  - Development:
+      - Getting Started: development/getting_started.md
+      - Installation: development/installation.md
+      - Coverage: exported/coverage
+      - Tests: exported/tests
+  - Licenses: licenses.md
+
+theme:
+  name: material
+  features:
+    - content.action.edit
+    - content.action.view
+    - content.code.copy
+    - header.autohide
+    - navigation.expand
+    - navigation.indexes
+    - navigation.instant
+    - navigation.instant.progress
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.top
+    - search.highlight
+    - search.suggest
+    - toc.follow
+  font: false
+  icon:
+    repo: fontawesome/brands/github
+  palette:
+    - scheme: default
+      accent: amber
+      media: "(prefers-color-scheme: light)"
+      primary: amber
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      accent: amber
+      media: "(prefers-color-scheme: dark)"
+      primary: amber
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+markdown_extensions:
+  # Python Markdown
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - meta
+  - md_in_html
+  - mkdocs-typer
+  - toc:
+      permalink: true
+  # Python Markdown Extensions
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.snippets:
+      auto_append:
+        - docs/glossary.md
+      check_paths: true
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+plugins:
+  - git-revision-date-localized:
+      fallback_to_build_date: true
+  - macros:
+      module_name: docs/macros
+  - mike:
+      alias_type: copy
+      canonical_version: latest
+  - minify:
+      minify_html: true
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            heading_level: 3
+            show_root_heading: true
+            show_source: true
+  - search
+
+extra:
+  generator: false
+  version:
+    provider: mike
+
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  # Sortable tables (see https://squidfunk.github.io/mkdocs-material/reference/data-tables)
+  - https://unpkg.com/tablesort/dist/tablesort.min.js
+  - js/tablesort.js
+
+  # MathJax (see https://squidfunk.github.io/mkdocs-material/reference/mathjax)
+  - js/mathjax.js
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js

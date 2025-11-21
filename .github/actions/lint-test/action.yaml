@@ -1,0 +1,14 @@
+name: "Lint and Test"
+description: "Run the pre-commit checks and pytest."
+runs:
+  using: "composite"
+  steps:
+    - name: Install & run pre-commit hooks
+      env:
+        SKIP: no-commit-to-branch
+      run: uv run --only-dev pre-commit run --all-files --show-diff-on-failure --verbose
+      shell: sh
+
+    - name: Run tests
+      run: uv run --dev pytest -m "not visual and not needs_cuda" --cov
+      shell: sh
