@@ -22,7 +22,7 @@ It assesses how well a distribution with the cumulative distribution function $F
 
 $$ \text{CRPS}(F,y) = \int _{\mathbb {R} }(F(x)-\mathbb {1} (x\geq y))^{2}dx \qquad (\text{integral formulation}) $$
 
-where $1$ denoted the indicator function. 
+where $1$ denoted the indicator function.
 
 ## Application to Machine Learning
 
