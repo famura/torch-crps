@@ -1,9 +1,9 @@
 import torch
 
-from torch_crps import crps_analytical_normal, crps_naive_integral
+from torch_crps import crps_analytical_naive_integral, crps_analytical_normal
 
 
-def test_crps_naive_integral_vs_analytical():
+def test_crps_analytical_naive_integral_vs_analytical_normal():
     """Test that naive integral method matches the analytical solution for Normal distributions."""
     torch.manual_seed(0)
 
@@ -16,7 +16,7 @@ def test_crps_naive_integral_vs_analytical():
     y = torch.tensor([0.5, 0.0, 4.5, -6.0])
 
     # Compute CRPS.
-    crps_naive = crps_naive_integral(normal_dist, y, x_min=-10, x_max=10, x_steps=10001)
+    crps_naive = crps_analytical_naive_integral(normal_dist, y, x_min=-10, x_max=10, x_steps=10001)
     crps_analytical = crps_analytical_normal(normal_dist, y)
 
     # Print the results for comparison
@@ -30,7 +30,7 @@ def test_crps_naive_integral_vs_analytical():
     )
 
 
-def test_crps_analytical_batched_smoke():
+def test_crps_analytical_normal_batched_smoke():
     """Test that analytical solution works with batched Normal distributions."""
     torch.manual_seed(0)
 

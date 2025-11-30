@@ -1,0 +1,102 @@
+import torch
+
+
+def crps_ensemble_naive(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+    """Computes the Continuous Ranked Probability Score (CRPS) for an ensemble forecast.
+
+    This implementation uses the energy form:
+    $$ CRPS(x, y) = E[|x - y|] - 0.5 * E[|x - x'|] $$
+
+    It is designed to be fully vectorized and handle any number of leading batch dimensions in the input tensors,
+    as long as they are equal for `x` and `y`.
+
+    Note:
+        This implementation uses an inefficient algorithm to compute the term E[|x - x'|] in O(m²) where m is
+        the number of ensemble members. This is done for clarity and educational purposes.
+
+    Args:
+        x: The ensemble predictions, of shape (*batch_shape, dim_ensemble).
+        y: The ground truth observations, of shape (*batch_shape).
+
+    Returns:
+        The calculated CRPS value for each forecast in the batch, of shape (*batch_shape).
+    """
+    if x.shape[:-1] != y.shape:
+        raise ValueError(f"The batch dimension(s) of x {x.shape[:-1]} and y {y.shape} must be equal!")
+
+    # Get the number of ensemble members.
+    x.shape[-1]
+
+    # --- Accuracy term := E[|x - y|]
+
+    # Compute the mean absolute error across all ensemble members. Unsqueeze the observation for explicit broadcasting.
+    mae = torch.abs(x - y.unsqueeze(-1)).mean(dim=-1)
+
+    # Create a matrix of all pairwise differences using broadcasting.
+    pairwise_diffs = x.unsqueeze(-1) - y.unsqueeze(-2)  # shape: (*batch_shape, m, m)
+
+    # Take the absolute value of every element in the matrix.
+    abs_pairwise_diffs = torch.abs(pairwise_diffs)
+
+    # Calculate the mean of the entire m x m matrix. The mean sums all elements and divides by the total count m².
+    mean_spread = abs_pairwise_diffs.mean()
+
+    # --- Assemble the final CRPS value.
+    crps_value = mae - 0.5 * mean_spread
+
+    return crps_value
+
+
+def crps_ensemble(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+    """Computes the Continuous Ranked Probability Score (CRPS) for an ensemble forecast.
+
+    This implementation uses the energy form:
+    $$ CRPS(x, y) = E[|x - y|] - 0.5 * E[|x - x'|] $$
+
+    It is designed to be fully vectorized and handle any number of leading batch dimensions in the input tensors,
+    as long as they are equal for `x` and `y`.
+
+    Note:
+        This implementation uses an efficient algorithm to compute the term E[|x - x'|] in O(m log(m)) time, where m is
+        the number of ensemble members. This is achieved by sorting the ensemble predictions and using a mathematical
+        identity to compute the mean absolute difference. You can also see this trick
+        [here][https://docs.nvidia.com/physicsnemo/25.11/_modules/physicsnemo/metrics/general/crps.html]
+
+    Args:
+        x: The ensemble predictions, of shape (*batch_shape, dim_ensemble).
+        y: The ground truth observations, of shape (*batch_shape).
+
+    Returns:
+        The calculated CRPS value for each forecast in the batch, of shape (*batch_shape).
+    """
+    if x.shape[:-1] != y.shape:
+        raise ValueError(f"The batch dimension(s) of x {x.shape[:-1]} and y {y.shape} must be equal!")
+
+    # Get the number of ensemble members.
+    m = x.shape[-1]
+
+    # --- Accuracy term := E[|x - y|]
+
+    # Compute the mean absolute error across all ensemble members. Unsqueeze the observation for explicit broadcasting.
+    mae = torch.abs(x - y.unsqueeze(-1)).mean(dim=-1)
+
+    # --- Spread term B := 0.5 * E[|x - x'|]
+    # This is half the mean absolute difference between all pairs of predictions.
+    # We use the efficient O(m log m) implementation with a summation over a single dimension.
+
+    # Sort the predictions along the ensemble member dimension.
+    x_sorted, _ = torch.sort(x, dim=-1)
+
+    # Calculate the coefficients (2i - m - 1) for the linear-time sum. These are the same for every item in the batch.
+    coeffs = 2 * torch.arange(1, m + 1, device=x.device, dtype=x.dtype) - m - 1
+
+    # Calculate the sum Σᵢ (2i - m - 1)xᵢ for each forecast in the batch along the member dimension.
+    x_sum = torch.sum(coeffs * x_sorted, dim=-1)
+
+    # Calculate the full expectation E[|x - x'|] = 2 / m² * Σᵢ (2i - m - 1)xᵢ.
+    mean_spread = 2 / m**2 * x_sum
+
+    # --- Assemble the final CRPS value.
+    crps_value = mae - 0.5 * mean_spread
+
+    return crps_value
