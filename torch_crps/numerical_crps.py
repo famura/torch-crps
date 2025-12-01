@@ -25,7 +25,7 @@ def crps_ensemble_naive(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         raise ValueError(f"The batch dimension(s) of x {x.shape[:-1]} and y {y.shape} must be equal!")
 
     # Get the number of ensemble members.
-    x.shape[-1]
+    m = x.shape[-1]
 
     # --- Accuracy term := E[|x - y|]
 
@@ -33,7 +33,9 @@ def crps_ensemble_naive(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     mae = torch.abs(x - y.unsqueeze(-1)).mean(dim=-1)
 
     # Create a matrix of all pairwise differences using broadcasting.
-    pairwise_diffs = x.unsqueeze(-1) - y.unsqueeze(-2)  # shape: (*batch_shape, m, m)
+    x_matrix = x.unsqueeze(-2)  # shape: (*batch_shape, 1, m)
+    y_matrix = y.unsqueeze(-1).expand(*y.shape, m).unsqueeze(-1)  # shape: (*batch_shape, m, 1)
+    pairwise_diffs = x_matrix - y_matrix  # shape: (*batch_shape, m, m)
 
     # Take the absolute value of every element in the matrix.
     abs_pairwise_diffs = torch.abs(pairwise_diffs)
