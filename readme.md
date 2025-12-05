@@ -24,6 +24,18 @@ $$ \text{CRPS}(F,y) = \int _{\mathbb {R} }(F(x)-\mathbb {1} (x\geq y))^{2}dx \qq
 
 where $1$ denoted the indicator function.
 
+In Section 2 of this [paper][crps-folumations] Zamo & Naveau list 3 different formulations of the CRPS.
+
+### Incomplete list of sources that I came across while researching about the CRPS
+
+- Hersbach, "Decomposition of the Continuous Ranked Probability Score for Ensemble Prediction Systems"; 2000
+- Gneiting et al.; "Calibrated Probabilistic Forecasting Using Ensemble Model Output Statistis and Minimum CRPS Estimation"; 2004
+- Gneiting & Raftery; "Strictly Proper Scoring Rules, Prediction, and Estimation"; 2007
+- Zamo & Naveau; "Estimation of the Continuous Ranked Probability Score with Limited Information and Applications to Ensemble Weather Forecasts"; 2018
+- Olivares & Négiar & Ma et al; "CLOVER: Probabilistic Forecasting with Coherent Learning Objective Reparameterization"; 2023
+- Vermorel & Tikhonov; "Continuously-Ranked Probability Score (CRPS)" [blog post][Lokad-post]; 2024
+- Zheng & Sun; "MVG-CRPS: A Robust Loss Function for Multivariate Probabilistic Forecasting"; 2025
+
 ## Application to Machine Learning
 
 The CRPS can be used as a loss function in machine learning, just like the well-known negative log-likelihood loss which is the log scoring rule.
@@ -70,3 +82,5 @@ The integral formulation is infeasible to naively evaluate on a computer due to 
 [uv]: https://docs.astral.sh/uv
 <!-- Paper URLS-->
 [multivariate-crps]: https://arxiv.org/pdf/2410.09133
+[crps-folumations]: https://link.springer.com/article/10.1007/s11004-017-9709-7
+[Lokad-post]: https://www.lokad.com/continuous-ranked-probability-score/
