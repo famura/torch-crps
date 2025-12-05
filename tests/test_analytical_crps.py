@@ -19,12 +19,12 @@ def test_crps_analytical_naive_integral_vs_analytical_normal():
     crps_naive = crps_analytical_naive_integral(normal_dist, y, x_min=-10, x_max=10, x_steps=10001)
     crps_analytical = crps_analytical_normal(normal_dist, y)
 
-    # Print the results for comparison
+    # Print the results for comparison.
     print("Naive integral CRPS:", crps_naive)
     print("Analytical CRPS:", crps_analytical)
     print("Absolute difference:", torch.abs(crps_naive - crps_analytical))
 
-    # Assert that both methods agree within numerical tolerance
+    # Assert that both methods agree within numerical tolerance.
     assert torch.allclose(crps_naive, crps_analytical, atol=2e-3, rtol=5e-4), (
         f"CRPS values do not match: naive={crps_naive}, analytical={crps_analytical}"
     )

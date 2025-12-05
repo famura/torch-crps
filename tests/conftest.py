@@ -12,7 +12,7 @@ needs_cuda = pytest.mark.skipif(not torch.cuda.is_available(), reason="CUDA is n
 
 @pytest.fixture
 def case_flat_1d():
-    """Fixture for a simple 1D example with a scalar output, to be used with the numerical methods."""
+    """Fixture for a simple 1D example with a scalar output, to be used with the ensemble methods."""
     return {
         "x": torch.tensor([12.0, 15.0, 16.0, 21.0]),  # only 1 forecast
         "y": torch.tensor(14.5),  # only 1 observation
@@ -22,7 +22,7 @@ def case_flat_1d():
 
 @pytest.fixture
 def case_batched_2d():
-    """Fixture for a batched 2D example, to be used with the numerical methods."""
+    """Fixture for a batched 2D example, to be used with the ensemble methods."""
     return {
         "x": torch.tensor(
             [
@@ -42,7 +42,7 @@ def case_batched_2d():
 
 @pytest.fixture
 def case_batched_3d():
-    """Fixture for a complex 3D example, to be used with the numerical methods."""
+    """Fixture for a complex 3D example, to be used with the ensemble methods."""
     torch.manual_seed(42)
     return {
         "x": torch.randn(2, 3, 5) * 10 + 50,

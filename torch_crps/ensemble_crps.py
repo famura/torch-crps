@@ -24,24 +24,25 @@ def crps_ensemble_naive(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     if x.shape[:-1] != y.shape:
         raise ValueError(f"The batch dimension(s) of x {x.shape[:-1]} and y {y.shape} must be equal!")
 
-    # Get the number of ensemble members.
-    m = x.shape[-1]
-
     # --- Accuracy term := E[|x - y|]
 
     # Compute the mean absolute error across all ensemble members. Unsqueeze the observation for explicit broadcasting.
     mae = torch.abs(x - y.unsqueeze(-1)).mean(dim=-1)
 
-    # Create a matrix of all pairwise differences using broadcasting.
-    x_matrix = x.unsqueeze(-2)  # shape: (*batch_shape, 1, m)
-    y_matrix = y.unsqueeze(-1).expand(*y.shape, m).unsqueeze(-1)  # shape: (*batch_shape, m, 1)
-    pairwise_diffs = x_matrix - y_matrix  # shape: (*batch_shape, m, m)
+    # --- Spread term := 0.5 * E[|x - x'|]
+    # This is half the mean absolute difference between all pairs of predictions.
+
+    # Create a matrix of all pairwise differences between ensemble members using broadcasting.
+    x_i = x.unsqueeze(-1)  # shape: (*batch_shape, m, 1)
+    x_j = x.unsqueeze(-2)  # shape: (*batch_shape, 1, m)
+    pairwise_diffs = x_i - x_j  # shape: (*batch_shape, m, m)
 
     # Take the absolute value of every element in the matrix.
     abs_pairwise_diffs = torch.abs(pairwise_diffs)
 
-    # Calculate the mean of the entire m x m matrix. The mean sums all elements and divides by the total count m².
-    mean_spread = abs_pairwise_diffs.mean()
+    # Calculate the mean of the m x m matrix for each batch item, i.e, not the batch shapes.
+    # The mean sums all elements and divides by the total count m².
+    mean_spread = abs_pairwise_diffs.mean(dim=(-2, -1))
 
     # --- Assemble the final CRPS value.
     crps_value = mae - 0.5 * mean_spread
