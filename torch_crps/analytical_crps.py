@@ -2,7 +2,7 @@ import torch
 from torch.distributions import Distribution, Normal
 
 
-def crps_naive_integral(
+def crps_analytical_naive_integral(
     q: Distribution,
     y: torch.Tensor,
     x_min: float = -1e2,
@@ -41,8 +41,8 @@ def crps_naive_integral(
     )
 
     # Reshape for proper broadcasting.
-    x_values = x_values.unsqueeze(-1)  # shape: [x_steps, 1]
-    y_expanded = y.unsqueeze(0)  # shape: [1, num_samples]
+    x_values = x_values.unsqueeze(-1)  # shape: (x_steps, 1)
+    y_expanded = y.unsqueeze(0)  # shape: (1, num_samples)
 
     # Compute the integral using the trapezoidal rule.
     integral_values = integrand(x_values)

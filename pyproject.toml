@@ -149,15 +149,15 @@ ignore = [
 preview = true
 
 [tool.ruff.lint.per-file-ignores]
-"torch_crps/cli/*" = [
-  "C901", # too much complexity
-  "PLC0415", # `import` should be at the top-level of a file
-]
 "tests/*" = [
   "ANN201", # return type information
   "D", # pydocstyle
   "PLC2701", # private name import from external module
   "S101", # use of assert detected
+]
+"torch_crps/cli/*" = [
+  "C901", # too much complexity
+  "PLC0415", # `import` should be at the top-level of a file
 ]
 
 [tool.ruff.lint.pydocstyle]

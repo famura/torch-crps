@@ -1,3 +1,9 @@
-from .analytical_crps import crps_analytical_normal, crps_naive_integral
+from .analytical_crps import crps_analytical_naive_integral, crps_analytical_normal
+from .ensemble_crps import crps_ensemble, crps_ensemble_naive
 
-__all__ = ["crps_analytical_normal", "crps_naive_integral"]
+__all__ = [
+    "crps_analytical_naive_integral",
+    "crps_analytical_normal",
+    "crps_ensemble",
+    "crps_ensemble_naive",
+]
