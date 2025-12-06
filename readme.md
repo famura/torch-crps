@@ -62,14 +62,14 @@ inspiring to read.
 :point_right: **Please have a look at the [documentation][docs] to get started.**
 
 <!-- URLs -->
-[cd-badge]: https://github.com/famura/binned-cdf/actions/workflows/cd.yaml/badge.svg
-[cd]: https://github.com/famura/binned-cdf/actions/workflows/cd.yaml
-[ci-badge]: https://github.com/famura/binned-cdf/actions/workflows/ci.yaml/badge.svg
-[ci]: https://github.com/famura/binned-cdf/actions/workflows/ci.yaml
-[coverage-badge]: https://famura.github.io/binned-cdf/latest/exported/coverage/badge.svg
-[coverage]: https://famura.github.io/binned-cdf/latest/exported/coverage/index.html
+[cd-badge]: https://github.com/famura/torch-crps/actions/workflows/cd.yaml/badge.svg
+[cd]: https://github.com/famura/torch-crps/actions/workflows/cd.yaml
+[ci-badge]: https://github.com/famura/torch-crps/actions/workflows/ci.yaml/badge.svg
+[ci]: https://github.com/famura/torch-crps/actions/workflows/ci.yaml
+[coverage-badge]: https://famura.github.io/torch-crps/latest/exported/coverage/badge.svg
+[coverage]: https://famura.github.io/torch-crps/latest/exported/coverage/index.html
 [docs-badge]: https://img.shields.io/badge/Docs-gh--pages-informational
-[docs]: https://famura.github.io/binned-cdf
+[docs]: https://famura.github.io/torch-crps
 [license-badge]: https://img.shields.io/badge/License-CC--BY--4.0%20-blue.svg
 [license-url]: https://creativecommons.org/licenses/by/4.0
 [mkdocs-material-badge]: https://img.shields.io/badge/Material_for_MkDocs-526CFE?logo=MaterialForMkDocs&logoColor=white
@@ -83,8 +83,8 @@ inspiring to read.
 [python-badge]: https://img.shields.io/badge/python-3.11%20|3.12%20|%203.13-informational?logo=python&logoColor=ffdd54
 [ruff-badge]: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json
 [ruff]: https://docs.astral.sh/ruff
-[tests-badge]: https://famura.github.io/binned-cdf/latest/exported/tests/badge.svg
-[tests]: https://famura.github.io/binned-cdf/latest/exported/tests/index.html
+[tests-badge]: https://famura.github.io/torch-crps/latest/exported/tests/badge.svg
+[tests]: https://famura.github.io/torch-crps/latest/exported/tests/index.html
 [uv-badge]: https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json
 [uv]: https://docs.astral.sh/uv
 <!-- Paper URLS-->
