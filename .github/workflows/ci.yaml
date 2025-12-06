@@ -50,12 +50,12 @@ jobs:
               with:
                   header: docs-comment
                   message: |
-                      :books: Created [temporary docs](https://famura.github.io/${{ github.repository }}/pr-${{ github.event.number }}).
+                      :books: Created [temporary docs](https://famura.github.io/torch-crps/pr-${{ github.event.number }}).
 
                       Useful URLs:
 
-                      - [Coverage](https://famura.github.io/${{ github.repository }}/pr-${{ github.event.number }}/exported/coverage)
-                      - [Tests](https://famura.github.io/${{ github.repository }}/pr-${{ github.event.number }}/exported/tests)
+                      - [Coverage](https://famura.github.io/torch-crps/pr-${{ github.event.number }}/exported/coverage)
+                      - [Tests](https://famura.github.io/torch-crps/pr-${{ github.event.number }}/exported/tests)
 
     ci-other-python-versions:
         if: github.event.pull_request.draft == false
