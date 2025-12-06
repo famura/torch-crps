@@ -4,7 +4,8 @@ import torch
 def crps_ensemble_naive(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     """Computes the Continuous Ranked Probability Score (CRPS) for an ensemble forecast.
 
-    This implementation uses the energy form:
+    This implementation uses the energy form
+
     $$ CRPS(x, y) = E[|x - y|] - 0.5 * E[|x - x'|] $$
 
     It is designed to be fully vectorized and handle any number of leading batch dimensions in the input tensors,
@@ -53,7 +54,8 @@ def crps_ensemble_naive(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
 def crps_ensemble(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     """Computes the Continuous Ranked Probability Score (CRPS) for an ensemble forecast.
 
-    This implementation uses the energy form:
+    This implementation uses the energy form
+
     $$ CRPS(x, y) = E[|x - y|] - 0.5 * E[|x - x'|] $$
 
     It is designed to be fully vectorized and handle any number of leading batch dimensions in the input tensors,
