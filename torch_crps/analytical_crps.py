@@ -1,4 +1,5 @@
 import torch
+from scipy.stats import t as scipy_student_t
 from torch.distributions import Distribution, Normal, StudentT
 
 
@@ -80,20 +81,43 @@ def crps_analytical_normal(
     return crps
 
 
+def _studentt_cdf_via_scipy(z: torch.Tensor, df: torch.Tensor | float) -> torch.Tensor:
+    """Since the `torch.distributions.StudentT` class does not have a `cdf()` method, we resort to scipy which has
+    a stable implementation.
+
+    Note:
+        This breaks differentiability and requires to move tensors to the CPU.
+
+    Args:
+        z: Standardized values at which to evaluate the CDF.
+        df: Degrees of freedom of the StudentT distribution.
+
+    Returns:
+        CDF value of the standardized StudentT distribution.
+    """
+    z_np = z.detach().cpu().numpy()
+    df_np = df.detach().cpu().numpy() if isinstance(df, torch.Tensor) else df
+
+    cdf_np = scipy_student_t.cdf(z_np, df=df_np)
+
+    f_cdf_z = torch.from_numpy(cdf_np).to(device=z.device, dtype=z.dtype)
+    return f_cdf_z
+
+
 def crps_analytical_studentt(
     q: StudentT,
     y: torch.Tensor,
 ) -> torch.Tensor:
-    r"""Compute the analytical CRPS assuming a Student-T distribution.
+    r"""Compute the analytical CRPS assuming a StudentT distribution.
 
     This implements the closed-form formula from Jordan et al. (2019), see Appendix A.2.
 
-    For the standardized Student-T distribution:
+    For the standardized StudentT distribution:
 
     $$\text{CRPS}(F_\nu, z) = z(2F_\nu(z) - 1) + 2f_\nu(z)\frac{\nu + z^2}{\nu - 1}
     - \frac{2\sqrt{\nu}}{\nu - 1} \frac{B(\frac{1}{2}, \nu - \frac{1}{2})}{B(\frac{1}{2}, \frac{\nu}{2})^2}$$
 
-    where $z$ is the standardized value, $F_\nu$ is the CDF, $f_\nu$ is the PDF of the standard Student-T
+    where $z$ is the standardized value, $F_\nu$ is the CDF, $f_\nu$ is the PDF of the standard StudentT
     distribution, $\nu$ is the degrees of freedom, and $B$ is the beta function.
 
     For the location-scale transformed distribution:
@@ -120,14 +144,14 @@ def crps_analytical_studentt(
     df, loc, scale = q.df, q.loc, q.scale
 
     if torch.any(df <= 1):
-        raise ValueError("Student-T CRPS requires degrees of freedom > 1")
+        raise ValueError("StudentT CRPS requires degrees of freedom > 1")
 
-    # Standardize, and create standard Student-T distribution for CDF and PDF.
+    # Standardize, and create standard StudentT distribution for CDF and PDF.
     z = (y - loc) / scale
     standard_t = torch.distributions.StudentT(df, loc=0, scale=1)
 
     # Compute standardized CDF F_nu(z) and PDF f_nu(z).
-    f_cdf_z = standard_t.cdf(z)
+    f_cdf_z = _studentt_cdf_via_scipy(z, df)
     f_z = torch.exp(standard_t.log_prob(z))
 
     # Compute the beta function ratio: B(1/2, nu - 1/2) / B(1/2, nu/2)^2
@@ -144,7 +168,6 @@ def crps_analytical_studentt(
     # log[B(1/2, nu-1/2)] = log Gamma(1/2) + log Gamma(nu-1/2) - log Gamma(nu)
     # log[B(1/2, nu/2)] = log Gamma(1/2) + log Gamma(nu/2) - log Gamma(nu/2 + 1/2)
     # log[B(1/2, nu-1/2) / B(1/2, nu/2)^2] = log B(1/2, nu-1/2) - 2*log B(1/2, nu/2)
-
     log_beta_ratio = (
         log_gamma_half
         + log_gamma_df_minus_half
