@@ -32,6 +32,7 @@ In Section 2 of this [paper][crps-folumations] Zamo & Naveau list 3 different fo
 - Gneiting et al.; "Calibrated Probabilistic Forecasting Using Ensemble Model Output Statistis and Minimum CRPS Estimation"; 2004
 - Gneiting & Raftery; "Strictly Proper Scoring Rules, Prediction, and Estimation"; 2007
 - Zamo & Naveau; "Estimation of the Continuous Ranked Probability Score with Limited Information and Applications to Ensemble Weather Forecasts"; 2018
+- Jordan et al.; "Evaluating Probabilistic Forecasts with scoringRules"; 2019
 - Olivares & Négiar & Ma et al; "CLOVER: Probabilistic Forecasting with Coherent Learning Objective Reparameterization"; 2023
 - Vermorel & Tikhonov; "Continuously-Ranked Probability Score (CRPS)" [blog post][Lokad-post]; 2024
 - Nvidia; "PhysicsNeMo Framework" [source code][nvidia-crps-implementation]; 2025
