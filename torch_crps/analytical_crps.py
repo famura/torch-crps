@@ -28,7 +28,13 @@ def crps_analytical_naive_integral(
 
     def integrand(x: torch.Tensor) -> torch.Tensor:
         """Compute the integrand $F(x) - 1(y <= x))^2$ to be used by the torch integration functions."""
-        cdf_value = q.cdf(x)
+        if not isinstance(q, StudentT):
+            # Default case.
+            cdf_value = q.cdf(x)
+        else:
+            # Special case for torch's StudentT distributions which do not have a cdf method implemented.
+            z = (x - q.loc) / q.scale
+            cdf_value = _standardized_studentt_cdf_via_scipy(z, q.df)
         indicator = (y_expanded <= x).float()
         return (cdf_value - indicator) ** 2
 
@@ -81,19 +87,20 @@ def crps_analytical_normal(
     return crps
 
 
-def _studentt_cdf_via_scipy(z: torch.Tensor, df: torch.Tensor | float) -> torch.Tensor:
+def _standardized_studentt_cdf_via_scipy(z: torch.Tensor, df: torch.Tensor | float) -> torch.Tensor:
     """Since the `torch.distributions.StudentT` class does not have a `cdf()` method, we resort to scipy which has
     a stable implementation.
 
     Note:
-        This breaks differentiability and requires to move tensors to the CPU.
+        - The inputs `z` must be standardized.
+        - This breaks differentiability and requires to move tensors to the CPU.
 
     Args:
         z: Standardized values at which to evaluate the CDF.
         df: Degrees of freedom of the StudentT distribution.
 
     Returns:
-        CDF value of the standardized StudentT distribution.
+        CDF values of the standardized StudentT distribution at `z`.
     """
     z_np = z.detach().cpu().numpy()
     df_np = df.detach().cpu().numpy() if isinstance(df, torch.Tensor) else df
@@ -131,7 +138,6 @@ def crps_analytical_studentt(
 
     See Also:
         Jordan et al.; "Evaluating Probabilistic Forecasts with scoringRules"; 2019; Appendix A.2.
-        Implemented in the `scoringRules` package: https://github.com/FK83/scoringRules/blob/master/R/scores_t.R
 
     Args:
         q: A PyTorch StudentT distribution object, typically a model's output distribution.
@@ -151,14 +157,14 @@ def crps_analytical_studentt(
     standard_t = torch.distributions.StudentT(df, loc=0, scale=1)
 
     # Compute standardized CDF F_nu(z) and PDF f_nu(z).
-    f_cdf_z = _studentt_cdf_via_scipy(z, df)
+    f_cdf_z = _standardized_studentt_cdf_via_scipy(z, df)
     f_z = torch.exp(standard_t.log_prob(z))
 
     # Compute the beta function ratio: B(1/2, nu - 1/2) / B(1/2, nu/2)^2
     # Using the relationship: B(a,b) = Gamma(a) * Gamma(b) / Gamma(a+b)
-    # B(1/2, nu - 1/2) / B(1/2, nu/2)^2 = [Gamma(1/2) * Gamma(nu-1/2) / Gamma(nu)] / [Gamma(1/2) * Gamma(nu/2) / Gamma(nu/2+1/2)]^2
-    # Simplifying: = Gamma(nu-1/2)Gamma(nu/2+1/2)^2 / [Gamma(nu)Gamma(nu/2)^2]
-
+    # B(1/2, nu - 1/2) / B(1/2, nu/2)^2 = ( Gamma(1/2) * Gamma(nu-1/2) / Gamma(nu) ) /
+    #                                     ( Gamma(1/2) * Gamma(nu/2) / Gamma(nu/2 + 1/2) )^2
+    # Simplifying to Gamma(nu - 1/2) Gamma(nu/2 + 1/2)^2 / ( Gamma(nu)Gamma(nu/2)^2 )
     # For numerical stability, we compute in log space.
     log_gamma_half = torch.lgamma(torch.tensor(0.5, dtype=df.dtype, device=df.device))
     log_gamma_df_minus_half = torch.lgamma(df - 0.5)
@@ -181,7 +187,7 @@ def crps_analytical_studentt(
         z * (2 * f_cdf_z - 1) + 2 * f_z * (df + z**2) / (df - 1) - (2 * torch.sqrt(df) / (df - 1)) * beta_frac
     )
 
-    # Apply location-scale transformation: CRPS(F_{nu,mu,sigma}, y) = sigma * CRPS(F_nu, z)
+    # Apply location-scale transformation CRPS(F_{nu,mu,sigma}, y) = sigma * CRPS(F_nu, z) with z = (y - mu) / sigma.
     crps = scale * crps_standard
 
     return crps

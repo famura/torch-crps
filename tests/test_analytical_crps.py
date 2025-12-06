@@ -47,7 +47,35 @@ def test_crps_analytical_naive_integral_vs_analytical_normal():
     print("Absolute difference:", torch.abs(crps_naive - crps_analytical))
 
     # Assert that both methods agree within numerical tolerance.
-    assert torch.allclose(crps_naive, crps_analytical, atol=2e-3, rtol=5e-4), (
+    assert torch.allclose(crps_naive, crps_analytical, atol=1e-3, rtol=5e-4), (
+        f"CRPS values do not match: naive={crps_naive}, analytical={crps_analytical}"
+    )
+
+
+def test_crps_analytical_naive_integral_vs_analytical_studentt():
+    """Test that naive integral method matches the analytical solution for StudentT distributions."""
+    torch.manual_seed(0)
+
+    # Define 4 independent univariate StudentT distributions.
+    df = torch.tensor([100.0, 3.0, 5.0, 5.0])
+    mu = torch.tensor([0.0, 0.0, 3.0, -7.0])
+    sigma = torch.tensor([1.0, 0.01, 1.5, 0.5])
+    studentt_dist = torch.distributions.StudentT(df=df, loc=mu, scale=sigma)
+
+    # Define observed values, one for each distribution.
+    y = torch.tensor([0.5, 0.0, 4.5, -6.0])
+
+    # Compute CRPS.
+    crps_naive = crps_analytical_naive_integral(studentt_dist, y, x_min=-10, x_max=10, x_steps=10001)
+    crps_analytical = crps_analytical_studentt(studentt_dist, y)
+
+    # Print the results for comparison.
+    print("Naive integral CRPS:", crps_naive)
+    print("Analytical CRPS:", crps_analytical)
+    print("Absolute difference:", torch.abs(crps_naive - crps_analytical))
+
+    # Assert that both methods agree within numerical tolerance.
+    assert torch.allclose(crps_naive, crps_analytical, atol=1e-3, rtol=5e-4), (
         f"CRPS values do not match: naive={crps_naive}, analytical={crps_analytical}"
     )
 
