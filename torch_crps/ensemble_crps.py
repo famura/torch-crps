@@ -49,9 +49,8 @@ def crps_ensemble_naive(x: torch.Tensor, y: torch.Tensor, biased: bool = True) -
         mean_spread = abs_pairwise_diffs.mean(dim=(-2, -1))
     else:
         # For the unbiased estimator, we need to exclude the diagonal (where i=j) and divide by m(m-1).
-        total_sum = abs_pairwise_diffs.sum(dim=(-2, -1))
         m = x.shape[-1]  # number of ensemble members
-        mean_spread = total_sum / (m * (m - 1))
+        mean_spread = abs_pairwise_diffs.sum(dim=(-2, -1)) / (m * (m - 1))
 
     # --- Assemble the final CRPS value.
     crps_value = mae - 0.5 * mean_spread
