@@ -1,7 +1,7 @@
 import torch
 
 
-def crps_ensemble_naive(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+def crps_ensemble_naive(x: torch.Tensor, y: torch.Tensor, biased: bool = True) -> torch.Tensor:
     """Computes the Continuous Ranked Probability Score (CRPS) for an ensemble forecast.
 
     This implementation uses the energy form
@@ -18,6 +18,8 @@ def crps_ensemble_naive(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     Args:
         x: The ensemble predictions, of shape (*batch_shape, dim_ensemble).
         y: The ground truth observations, of shape (*batch_shape).
+        biased: If True, uses the biased estimator for E[|x - x'|]. If False, uses the unbiased estimator.
+            The unbiased estimator divides by m * (m - 1) instead of m².
 
     Returns:
         The calculated CRPS value for each forecast in the batch, of shape (*batch_shape).
@@ -47,11 +49,14 @@ def crps_ensemble_naive(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
 
     # --- Assemble the final CRPS value.
     crps_value = mae - 0.5 * mean_spread
+    if not biased:
+        m = x.shape[-1]  # number of ensemble members
+        crps_value *= m / (m - 1)
 
     return crps_value
 
 
-def crps_ensemble(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+def crps_ensemble(x: torch.Tensor, y: torch.Tensor, biased: bool = True) -> torch.Tensor:
     """Computes the Continuous Ranked Probability Score (CRPS) for an ensemble forecast.
 
     This implementation uses the energy form
@@ -70,6 +75,8 @@ def crps_ensemble(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     Args:
         x: The ensemble predictions, of shape (*batch_shape, dim_ensemble).
         y: The ground truth observations, of shape (*batch_shape).
+        biased: If True, uses the biased estimator for E[|x - x'|]. If False, uses the unbiased estimator.
+            The unbiased estimator divides by m * (m - 1) instead of m².
 
     Returns:
         The calculated CRPS value for each forecast in the batch, of shape (*batch_shape).
@@ -99,9 +106,10 @@ def crps_ensemble(x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
     x_sum = torch.sum(coeffs * x_sorted, dim=-1)
 
     # Calculate the full expectation E[|x - x'|] = 2 / m² * Σᵢ (2i - m - 1)xᵢ.
-    mean_spread = 2 / m**2 * x_sum
+    denom = m * (m - 1) if not biased else m**2
+    half_mean_spread = 1 / denom * x_sum  # 2 in numerator here cancels with 0.5 in the next step
 
     # --- Assemble the final CRPS value.
-    crps_value = mae - 0.5 * mean_spread
+    crps_value = mae - half_mean_spread  # 0.5 already accounted for above
 
     return crps_value
