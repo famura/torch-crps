@@ -44,14 +44,17 @@ def crps_ensemble_naive(x: torch.Tensor, y: torch.Tensor, biased: bool = True) -
     abs_pairwise_diffs = torch.abs(pairwise_diffs)
 
     # Calculate the mean of the m x m matrix for each batch item, i.e, not the batch shapes.
-    # The mean sums all elements and divides by the total count m².
-    mean_spread = abs_pairwise_diffs.mean(dim=(-2, -1))
+    if biased:
+        # For the biased estimator, we use the mean which divides by m².
+        mean_spread = abs_pairwise_diffs.mean(dim=(-2, -1))
+    else:
+        # For the unbiased estimator, we need to exclude the diagonal (where i=j) and divide by m(m-1).
+        total_sum = abs_pairwise_diffs.sum(dim=(-2, -1))
+        m = x.shape[-1]  # number of ensemble members
+        mean_spread = total_sum / (m * (m - 1))
 
     # --- Assemble the final CRPS value.
     crps_value = mae - 0.5 * mean_spread
-    if not biased:
-        m = x.shape[-1]  # number of ensemble members
-        crps_value *= m / (m - 1)
 
     return crps_value
 
