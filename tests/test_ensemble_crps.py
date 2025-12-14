@@ -4,6 +4,7 @@ import pytest
 import torch
 from _pytest.fixtures import FixtureRequest
 
+from tests.conftest import needs_cuda
 from torch_crps import crps_ensemble, crps_ensemble_naive
 
 
@@ -14,16 +15,29 @@ from torch_crps import crps_ensemble, crps_ensemble_naive
 )
 @pytest.mark.parametrize("crps_fcn", [crps_ensemble_naive, crps_ensemble], ids=["naive", "default"])
 @pytest.mark.parametrize("biased", [True, False], ids=["biased", "unbiased"])
-def test_crps_ensemble_smoke(test_case_fixture_name: str, crps_fcn: Callable, biased: bool, request: FixtureRequest):
+@pytest.mark.parametrize(
+    "use_cuda",
+    [
+        pytest.param(False, id="cpu"),
+        pytest.param(True, marks=needs_cuda, id="cuda"),
+    ],
+)
+def test_crps_ensemble_smoke(
+    test_case_fixture_name: str, crps_fcn: Callable, biased: bool, use_cuda: bool, request: FixtureRequest
+):
     """Test that naive ensemble method yield."""
     test_case_fixture: dict = request.getfixturevalue(test_case_fixture_name)
     x, y, expected_shape = test_case_fixture["x"], test_case_fixture["y"], test_case_fixture["expected_shape"]
+    if use_cuda:
+        x, y = x.cuda(), y.cuda()
 
     crps = crps_fcn(x, y, biased)
 
     assert isinstance(crps, torch.Tensor)
     assert crps.shape == expected_shape, "The output shape is incorrect!"
     assert crps.dtype in [torch.float32, torch.float64], "The output dtype is not float!"
+    assert crps.device == x.device, "The output device does not match the input device!"
+    assert torch.all(crps >= 0), "CRPS values should be non-negative!"
 
 
 @pytest.mark.parametrize(

@@ -2,40 +2,57 @@ import pytest
 import torch
 from torch.distributions import Normal, StudentT
 
+from tests.conftest import needs_cuda
 from torch_crps import crps_analytical_naive_integral, crps_analytical_normal, crps_analytical_studentt
 
 
-def test_crps_analytical_normal_batched_smoke():
+@pytest.mark.parametrize(
+    "use_cuda",
+    [
+        pytest.param(False, id="cpu"),
+        pytest.param(True, marks=needs_cuda, id="cuda"),
+    ],
+)
+def test_crps_analytical_normal_batched_smoke(use_cuda: bool):
     """Test that analytical solution works with batched Normal distributions."""
     torch.manual_seed(0)
 
     # Define a batch of 2 independent univariate Normal distributions.
-    mu = torch.tensor([[0.0, 1.0], [2.0, 3.0], [-2.0, -3.0]])
-    sigma = torch.tensor([[1.0, 0.5], [1.5, 2.0], [0.01, 0.01]])
+    mu = torch.tensor([[0.0, 1.0], [2.0, 3.0], [-2.0, -3.0]], device="cuda" if use_cuda else "cpu")
+    sigma = torch.tensor([[1.0, 0.5], [1.5, 2.0], [0.01, 0.01]], device="cuda" if use_cuda else "cpu")
     normal_dist = torch.distributions.Normal(loc=mu, scale=sigma)
 
     # Define observed values for each distribution in the batch.
-    y = torch.tensor([[0.5, 1.5], [2.5, 3.5], [-2.0, -3.0]])
+    y = torch.tensor([[0.5, 1.5], [2.5, 3.5], [-2.0, -3.0]], device="cuda" if use_cuda else "cpu")
 
     # Compute CRPS using the analytical method.
     crps_analytical = crps_analytical_normal(normal_dist, y)
 
     # Simple sanity check: CRPS should be non-negative.
-    assert torch.all(crps_analytical >= 0), "CRPS values should be non-negative."
     assert crps_analytical.shape == y.shape, "CRPS output shape should match input shape."
+    assert crps_analytical.dtype in [torch.float32, torch.float64], "CRPS output dtype should be float."
+    assert crps_analytical.device == y.device, "CRPS output device should match input device."
+    assert torch.all(crps_analytical >= 0), "CRPS values should be non-negative."
 
 
-def test_crps_analytical_naive_integral_vs_analytical_normal():
+@pytest.mark.parametrize(
+    "use_cuda",
+    [
+        pytest.param(False, id="cpu"),
+        pytest.param(True, marks=needs_cuda, id="cuda"),
+    ],
+)
+def test_crps_analytical_naive_integral_vs_analytical_normal(use_cuda: bool):
     """Test that naive integral method matches the analytical solution for Normal distributions."""
     torch.manual_seed(0)
 
     # Define 4 independent univariate Normal distributions.
-    mu = torch.tensor([0.0, 0.0, 3.0, -7.0])
-    sigma = torch.tensor([1.0, 0.01, 1.5, 0.5])
+    mu = torch.tensor([0.0, 0.0, 3.0, -7.0], device="cuda" if use_cuda else "cpu")
+    sigma = torch.tensor([1.0, 0.01, 1.5, 0.5], device="cuda" if use_cuda else "cpu")
     normal_dist = torch.distributions.Normal(loc=mu, scale=sigma)
 
     # Define observed values, one for each distribution.
-    y = torch.tensor([0.5, 0.0, 4.5, -6.0])
+    y = torch.tensor([0.5, 0.0, 4.5, -6.0], device="cuda" if use_cuda else "cpu")
 
     # Compute CRPS.
     crps_naive = crps_analytical_naive_integral(normal_dist, y, x_min=-10, x_max=10, x_steps=10001)
@@ -50,20 +67,28 @@ def test_crps_analytical_naive_integral_vs_analytical_normal():
     assert torch.allclose(crps_naive, crps_analytical, atol=1e-3, rtol=5e-4), (
         f"CRPS values do not match: naive={crps_naive}, analytical={crps_analytical}"
     )
+    assert crps_naive.device == crps_analytical.device == y.device, "CRPS output device should match input device."
 
 
-def test_crps_analytical_naive_integral_vs_analytical_studentt():
+@pytest.mark.parametrize(
+    "use_cuda",
+    [
+        pytest.param(False, id="cpu"),
+        pytest.param(True, marks=needs_cuda, id="cuda"),
+    ],
+)
+def test_crps_analytical_naive_integral_vs_analytical_studentt(use_cuda: bool):
     """Test that naive integral method matches the analytical solution for StudentT distributions."""
     torch.manual_seed(0)
 
     # Define 4 independent univariate StudentT distributions.
-    df = torch.tensor([100.0, 3.0, 5.0, 5.0])
-    mu = torch.tensor([0.0, 0.0, 3.0, -7.0])
-    sigma = torch.tensor([1.0, 0.01, 1.5, 0.5])
+    df = torch.tensor([100.0, 3.0, 5.0, 5.0], device="cuda" if use_cuda else "cpu")
+    mu = torch.tensor([0.0, 0.0, 3.0, -7.0], device="cuda" if use_cuda else "cpu")
+    sigma = torch.tensor([1.0, 0.01, 1.5, 0.5], device="cuda" if use_cuda else "cpu")
     studentt_dist = torch.distributions.StudentT(df=df, loc=mu, scale=sigma)
 
     # Define observed values, one for each distribution.
-    y = torch.tensor([0.5, 0.0, 4.5, -6.0])
+    y = torch.tensor([0.5, 0.0, 4.5, -6.0], device="cuda" if use_cuda else "cpu")
 
     # Compute CRPS.
     crps_naive = crps_analytical_naive_integral(studentt_dist, y, x_min=-10, x_max=10, x_steps=10001)
@@ -78,6 +103,7 @@ def test_crps_analytical_naive_integral_vs_analytical_studentt():
     assert torch.allclose(crps_naive, crps_analytical, atol=1e-3, rtol=5e-4), (
         f"CRPS values do not match: naive={crps_naive}, analytical={crps_analytical}"
     )
+    assert crps_naive.device == crps_analytical.device == y.device, "CRPS output device should match input device."
 
 
 @pytest.mark.parametrize(
