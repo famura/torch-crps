@@ -51,3 +51,18 @@ def test_crps_ensemble_match(batch_shape: tuple[int, ...], biased: bool, dim_ens
     assert torch.allclose(crps_naive, crps_default, atol=1e-8, rtol=1e-6), (
         f"CRPS values do not match: naive={crps_naive}, default={crps_default}"
     )
+
+
+def test_crps_ensemble_invalid_shapes(dim_ensemble: int = 10):
+    """Test that crps_ensemble raises an error for invalid input shapes."""
+    # Mismatch in the number of batch dimensions.
+    x = torch.randn(2, 3, dim_ensemble)
+    y = torch.randn(3)
+    with pytest.raises(ValueError):
+        crps_ensemble(x, y)
+
+    # Mismatch in batch dimension sizes.
+    x = torch.randn(4, 5, dim_ensemble)
+    y = torch.randn(4, 6)
+    with pytest.raises(ValueError):
+        crps_ensemble(x, y)

@@ -4,21 +4,26 @@ import torch
 def crps_ensemble_naive(x: torch.Tensor, y: torch.Tensor, biased: bool = True) -> torch.Tensor:
     """Computes the Continuous Ranked Probability Score (CRPS) for an ensemble forecast.
 
-    This implementation uses the energy form
+    This implementation uses the equality
 
-    $$ CRPS(x, y) = E[|x - y|] - 0.5 * E[|x - x'|] $$
+    $$ CRPS(X, y) = E[|X - y|] - 0.5 E[|X - X'|] $$
 
     It is designed to be fully vectorized and handle any number of leading batch dimensions in the input tensors,
     as long as they are equal for `x` and `y`.
 
+    See Also:
+        Zamo & Naveau; "Estimation of the Continuous Ranked Probability Score with Limited Information and Applications
+        to Ensemble Weather Forecasts"; 2017
+
     Note:
-        This implementation uses an inefficient algorithm to compute the term E[|x - x'|] in O(m²) where m is
+        - This implementation uses an inefficient algorithm to compute the term E[|X - X'|] in O(m²) where m is
         the number of ensemble members. This is done for clarity and educational purposes.
+        - This implementation exactly matches the energy formula, see (NRG) and (eNRG), in Zamo & Naveau (2017).
 
     Args:
         x: The ensemble predictions, of shape (*batch_shape, dim_ensemble).
         y: The ground truth observations, of shape (*batch_shape).
-        biased: If True, uses the biased estimator for E[|x - x'|]. If False, uses the unbiased estimator.
+        biased: If True, uses the biased estimator for E[|X - X'|]. If False, uses the unbiased estimator.
             The unbiased estimator divides by m * (m - 1) instead of m².
 
     Returns:
@@ -27,12 +32,12 @@ def crps_ensemble_naive(x: torch.Tensor, y: torch.Tensor, biased: bool = True) -
     if x.shape[:-1] != y.shape:
         raise ValueError(f"The batch dimension(s) of x {x.shape[:-1]} and y {y.shape} must be equal!")
 
-    # --- Accuracy term := E[|x - y|]
+    # --- Accuracy term := E[|X - y|]
 
     # Compute the mean absolute error across all ensemble members. Unsqueeze the observation for explicit broadcasting.
     mae = torch.abs(x - y.unsqueeze(-1)).mean(dim=-1)
 
-    # --- Spread term := 0.5 * E[|x - x'|]
+    # --- Spread term := 0.5 * E[|X - X'|]
     # This is half the mean absolute difference between all pairs of predictions.
 
     # Create a matrix of all pairwise differences between ensemble members using broadcasting.
@@ -59,25 +64,37 @@ def crps_ensemble_naive(x: torch.Tensor, y: torch.Tensor, biased: bool = True) -
 
 
 def crps_ensemble(x: torch.Tensor, y: torch.Tensor, biased: bool = True) -> torch.Tensor:
-    """Computes the Continuous Ranked Probability Score (CRPS) for an ensemble forecast.
+    r"""Computes the Continuous Ranked Probability Score (CRPS) for an ensemble forecast.
 
-    This implementation uses the energy form
+    This implementation uses the equalities
 
-    $$ CRPS(x, y) = E[|x - y|] - 0.5 * E[|x - x'|] $$
+    $$ CRPS(F, y) = E[|X - y|] - 0.5 E[|X - X'|] $$
+
+    and
+
+    $$ CRPS(F, y) = E[|X - y|] + E[X] - 2 E[X F(X)] $$
 
     It is designed to be fully vectorized and handle any number of leading batch dimensions in the input tensors,
     as long as they are equal for `x` and `y`.
 
+    See Also:
+        Zamo & Naveau; "Estimation of the Continuous Ranked Probability Score with Limited Information and Applications
+        to Ensemble Weather Forecasts"; 2017
+
     Note:
-        This implementation uses an efficient algorithm to compute the term E[|x - x'|] in O(m log(m)) time, where m is
-        the number of ensemble members. This is achieved by sorting the ensemble predictions and using a mathematical
+        - This implementation uses an efficient algorithm to compute the term E[|X - X'|] in O(m log(m)) time, where m
+        is the number of ensemble members. This is achieved by sorting the ensemble predictions and using a mathematical
         identity to compute the mean absolute difference. You can also see this trick
         [here][https://docs.nvidia.com/physicsnemo/25.11/_modules/physicsnemo/metrics/general/crps.html]
+        - This implementation exactly matches the energy formula, see (NRG) and (eNRG), in Zamo & Naveau (2017) while
+        using the compuational trick which can be read from (ePWM) in the same paper. The factors &\beta_0$ and
+        $\beta_1$ in (ePWM) together equal the second term, i.e., the half mean spread, here. In (ePWM) they pulled
+        the mean out. The energy formula and the probability weighted moment formula are equivalent.
 
     Args:
         x: The ensemble predictions, of shape (*batch_shape, dim_ensemble).
         y: The ground truth observations, of shape (*batch_shape).
-        biased: If True, uses the biased estimator for E[|x - x'|]. If False, uses the unbiased estimator.
+        biased: If True, uses the biased estimator for E[|X - X'|]. If False, uses the unbiased estimator.
             The unbiased estimator divides by m * (m - 1) instead of m².
 
     Returns:
@@ -89,12 +106,12 @@ def crps_ensemble(x: torch.Tensor, y: torch.Tensor, biased: bool = True) -> torc
     # Get the number of ensemble members.
     m = x.shape[-1]
 
-    # --- Accuracy term := E[|x - y|]
+    # --- Accuracy term := E[|X - y|]
 
     # Compute the mean absolute error across all ensemble members. Unsqueeze the observation for explicit broadcasting.
     mae = torch.abs(x - y.unsqueeze(-1)).mean(dim=-1)
 
-    # --- Spread term B := 0.5 * E[|x - x'|]
+    # --- Spread term B := 0.5 * E[|X - X'|]
     # This is half the mean absolute difference between all pairs of predictions.
     # We use the efficient O(m log m) implementation with a summation over a single dimension.
 
@@ -107,7 +124,7 @@ def crps_ensemble(x: torch.Tensor, y: torch.Tensor, biased: bool = True) -> torc
     # Calculate the sum Σᵢ (2i - m - 1)xᵢ for each forecast in the batch along the member dimension.
     x_sum = torch.sum(coeffs * x_sorted, dim=-1)
 
-    # Calculate the full expectation E[|x - x'|] = 2 / m² * Σᵢ (2i - m - 1)xᵢ.
+    # Calculate the full expectation E[|X - X'|] = 2 / m² * Σᵢ (2i - m - 1)xᵢ.
     denom = m * (m - 1) if not biased else m**2
     half_mean_spread = 1 / denom * x_sum  # 2 in numerator here cancels with 0.5 in the next step
 
