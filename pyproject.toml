@@ -47,7 +47,7 @@ dependencies = [
 ]
 description = "Implementations of the CRPS using PyTorch"
 dynamic = ["version"]
-license = "MIT"
+license = "CC-BY-4.0"
 maintainers = [{name = "Fabio Muratore", email = "accounts@famura.net"}]
 name = "torch-crps"
 readme = "readme.md"
@@ -57,9 +57,6 @@ requires-python = ">=3.11"
 homepage = "https://famura.github.io/torch-crps"
 source = "https://github.com/famura/torch-crps"
 
-# -----
-# Tools
-# -----
 [tool.coverage.html]
 directory = "docs/exported/coverage"
 
