@@ -19,15 +19,11 @@ dev = [
   "pytest-html",
   "pytest-xdist",
   "pytest",
+  "scipy>=1.9",
   "seaborn>=0.13.2",
 ]
-examples = [
-  "scikit-learn>=1.7.2",
-]
-
-[project.optional-dependencies]
-examples = [
-  "scikit-learn>=1.7.2",
+studentt = [
+  "scipy>=1.9",
 ]
 
 [project]
@@ -42,7 +38,6 @@ classifiers = [
   "Topic :: Scientific/Engineering",
 ]
 dependencies = [
-  "scipy>=1.16.3",
   "torch>=2.7",
 ]
 description = "Implementations of the CRPS using PyTorch"
@@ -142,6 +137,7 @@ ignore = [
   "D100", # missing docstring in public module
   "D104", # missing docstring in public package
   "D205", # 1st line of the docstring must be a oneliner
+  "PLC0415", # import should be at the top-level of a file
   "PLR", # pylint refactor
 ]
 preview = true
