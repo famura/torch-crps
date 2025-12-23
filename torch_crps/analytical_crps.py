@@ -1,5 +1,4 @@
 import torch
-from scipy.stats import t as scipy_student_t
 from torch.distributions import Distribution, Normal, StudentT
 
 
@@ -102,6 +101,14 @@ def _standardized_studentt_cdf_via_scipy(z: torch.Tensor, df: torch.Tensor | flo
     Returns:
         CDF values of the standardized StudentT distribution at `z`.
     """
+    try:
+        from scipy.stats import t as scipy_student_t
+    except ImportError as e:
+        raise ImportError(
+            "scipy is required for the analytical solution for the StudentT distribution. "
+            "Install `torch-crps` with the 'studentt' dependency group, e.g. `pip install torch-crps[studentt]`."
+        ) from e
+
     z_np = z.detach().cpu().numpy()
     df_np = df.detach().cpu().numpy() if isinstance(df, torch.Tensor) else df
 
