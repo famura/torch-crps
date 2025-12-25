@@ -1,3 +1,12 @@
+"""This script loads a small time-series dataset and trains a simple distributional model on it.
+
+The key insight here is that the CRPS loss, just like the NLL loss, allows this script to solve the task.
+
+I tried a few variations of the model and the optimizer's parameters (not an exhaustive search). Finally, I arrived
+at the insight that the NLL loss function incentivizes the model to converge to the marginal distribution of the data,
+clearly a local optimum, in more scenarios than the CRPS loss.
+"""
+
 import pathlib
 
 import matplotlib.pyplot as plt
@@ -16,24 +25,18 @@ torch.set_default_dtype(torch.float32)
 class SimpleDistributionalModel(torch.nn.Module):
     """A model that makes independent predictions given a sequence of inputs, yielding a StudentT distribution."""
 
-    def __init__(
-        self, dim_input: int, dim_output: int, hidden_size: int, dof: float = 10, dropout: float = 0.1
-    ) -> None:
+    def __init__(self, dim_input: int, dim_output: int, hidden_size: int) -> None:
         """Initialize the model.
 
         Args:
             dim_input: Input feature dimension.
             dim_output: Output feature dimension.
             hidden_size: GRU hidden state dimension.
-            dof: Degrees of freedom for the StudentT distribution.
-            dropout: Dropout rate for regularization.
         """
         super().__init__()
-        # Use GRU which is designed for sequential data
         self.gru = torch.nn.GRU(dim_input, hidden_size, num_layers=2, batch_first=True, dropout=0.0)
         self.activation = torch.nn.SiLU()
         self.output_projection = torch.nn.Linear(hidden_size, dim_output * 2)  # output mean and scale for each feature
-        self.dof = dof
 
     def forward(self, x: torch.Tensor) -> torch.distributions.Distribution:
         """Forward pass through the model.
@@ -57,8 +60,7 @@ class SimpleDistributionalModel(torch.nn.Module):
         loc, scale_raw = x.chunk(2, dim=-1)
         scale = torch.nn.functional.softplus(scale_raw) + 1e-4  # ensure positive scale with reasonable minimum
 
-        # Create num_samples independent StudentT distributions with fixed dof.
-        # dist = torch.distributions.StudentT(df=self.dof, loc=loc, scale=scale)
+        # Create num_samples independent Nornmal distributions.
         dist = torch.distributions.Normal(loc=loc, scale=scale)
 
         return dist
@@ -74,7 +76,7 @@ def load_and_split_data(dataset_name: str, normalize: bool) -> tuple[torch.Tenso
     Returns:
         Training and testing data as tensors of shape (num_samples, dim_data).
     """
-    # Load and move the torch.
+    # Load data and convert to torch tensor.
     data = torch.from_numpy(numpy.load(EXAMPLES_DIR / f"{dataset_name}.npy"))
     data = torch.atleast_2d(data).float().contiguous()
     if data.size(0) == 1:
@@ -97,20 +99,20 @@ def simple_training(
     packed_inputs: torch.Tensor,
     packed_targets: torch.Tensor,
     dataset_name: str,
-    normalized_data: bool,
+    normalize_data: bool,
     use_crps: bool,
     device: torch.device,
 ) -> None:
     """A bare bones training loop for the time series model that works on windowed data.
 
-    The training loop is so simplified, it goes over the whle data set in each epoch without batching or validation.
+    The training loop is so simplified, it goes over the whole data set in each epoch without batching or validation.
 
     Args:
         model: The model to train.
         packed_inputs: Input tensor of shape (num_samples, seq_len, dim_input).
         packed_targets: Target tensor of shape (num_samples, dim_output).
         dataset_name: Name of the dataset.
-        normalized_data: Whether the data is normalized.
+        normalize_data: Whether the data is normalized.
         use_crps: If True, use CRPS loss. If false, use negative log-likelihood loss.
         device: Device to run training on.
     """
@@ -119,9 +121,14 @@ def simple_training(
     packed_targets = packed_targets.to(device)
 
     # Use a simple heuristic for the optimization hyper-parameters.
-    if dataset_name == "monthly_sunspots" and not normalized_data:  # data is in [0, 100] so we need more steps
-        num_epochs = 5001
-        lr = 4e-3
+    if dataset_name == "monthly_sunspots":
+        if normalize_data:
+            num_epochs = 3001
+            lr = 3e-3
+        else:
+            # The data is in [0, 100] so we need more steps.
+            num_epochs = 5001
+            lr = 4e-3
     else:
         num_epochs = 2001
         lr = 2e-3
@@ -169,7 +176,7 @@ def simple_training(
             )
 
 
-@torch.no_grad()
+@torch.inference_mode()
 def evaluate_model(
     model: torch.nn.Module, data: torch.Tensor, len_window: int, device: torch.device
 ) -> tuple[numpy.ndarray, numpy.ndarray]:
@@ -274,7 +281,7 @@ if __name__ == "__main__":
 
     # Configure.
     normalize_data = True  # scales the data to be in [-1, 1] (recommended for monthly_sunspots dataset)
-    dataset_name = "mackey_glass"  # monthly_sunspots or mackey_glass
+    dataset_name = "monthly_sunspots"  # monthly_sunspots or mackey_glass
     use_crps = True  # if True, use CRPS loss instead of NLL
     len_window = 10  # tested 10 and 20
     dim_hidden = 64
@@ -316,7 +323,15 @@ if __name__ == "__main__":
     packed_targets = torch.stack(targets, dim=0)  # shape = (num_samples, dim_data)
 
     # Run a simple optimization loop.
-    simple_training(model, packed_inputs, packed_targets, dataset_name, normalize_data, use_crps, device)
+    simple_training(
+        model,
+        packed_inputs,
+        packed_targets,
+        dataset_name=dataset_name,
+        normalize_data=normalize_data,
+        use_crps=use_crps,
+        device=device,
+    )
 
     # Evaluate the model using the same rolling window approach as training.
     predictions_trn_mean, predictions_trn_std = evaluate_model(model, data_trn, len_window, device)
@@ -332,5 +347,6 @@ if __name__ == "__main__":
         predictions_tst_mean,
         predictions_tst_std,
     )
-    plt.savefig(EXAMPLES_DIR / f"time_series_learning_{dataset_name}.png", dpi=300)
+    loss_name = "crps" if use_crps else "nll"
+    plt.savefig(EXAMPLES_DIR / f"time_series_learning_{dataset_name}_{loss_name}.png", dpi=300)
     print(f"Figure saved to {EXAMPLES_DIR / f'time_series_learning_{dataset_name}.png'}")
