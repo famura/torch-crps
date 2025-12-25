@@ -1,9 +1,11 @@
+from typing import Any
+
 import pytest
 import torch
 from torch.distributions import Normal, StudentT
 
 from tests.conftest import needs_cuda
-from torch_crps import crps_analytical_naive_integral, crps_analytical_normal, crps_analytical_studentt
+from torch_crps import crps_analytical, crps_analytical_naive_integral, crps_analytical_normal, crps_analytical_studentt
 
 
 @pytest.mark.parametrize(
@@ -133,3 +135,27 @@ def test_studentt_convergence_to_normal(loc: torch.Tensor, scale: torch.Tensor, 
     assert torch.allclose(crps_studentt, crps_normal, atol=2e-3), (
         "StudentT CRPS with high 'df' should match Normal CRPS."
     )
+
+
+@pytest.mark.parametrize(
+    "q",
+    [
+        torch.distributions.Normal(loc=torch.zeros(3), scale=torch.ones(3)),
+        torch.distributions.StudentT(df=5, loc=torch.zeros(3), scale=torch.ones(3)),
+        "NOT_A_SUPPORTED_DISTRIBUTION",
+    ],
+    ids=["Normal", "StudentT", "not_supported"],
+)
+def test_crps_analytical_interface_smoke(q: Any):  # noqa: ANN401
+    """Test if the top-level interface function is working"""
+    y = torch.zeros(3)  # can be the same for all tests
+
+    if isinstance(q, (Normal, StudentT)):
+        # Supported, should return a result.
+        crps = crps_analytical(q, y)
+        assert isinstance(crps, torch.Tensor)
+
+    else:
+        # Not supported, should raise an error.
+        with pytest.raises(NotImplementedError):
+            crps_analytical(q, y)

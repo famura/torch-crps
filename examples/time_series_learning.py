@@ -15,7 +15,7 @@ import seaborn
 import torch
 from matplotlib.figure import Figure
 
-from torch_crps.analytical_crps import crps_analytical_normal
+from torch_crps import crps_analytical
 
 EXAMPLES_DIR = pathlib.Path(pathlib.Path(__file__).parent)
 
@@ -145,7 +145,7 @@ def simple_training(
 
         # Compute the loss, lower is better in both cases.
         if use_crps:
-            loss = crps_analytical_normal(packed_predictions, packed_targets).mean()
+            loss = crps_analytical(packed_predictions, packed_targets).mean()
         else:
             loss = -packed_predictions.log_prob(packed_targets).mean()
 
