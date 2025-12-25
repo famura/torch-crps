@@ -139,6 +139,7 @@ ignore = [
   "D205", # 1st line of the docstring must be a oneliner
   "PLC0415", # import should be at the top-level of a file
   "PLR", # pylint refactor
+  "RUF001", # allow for greek letters
 ]
 preview = true
 
