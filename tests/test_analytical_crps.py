@@ -5,7 +5,8 @@ import torch
 from torch.distributions import Normal, StudentT
 
 from tests.conftest import needs_cuda
-from torch_crps import crps_analytical, crps_analytical_naive_integral, crps_analytical_normal, crps_analytical_studentt
+from torch_crps import crps_analytical, crps_analytical_normal, crps_analytical_studentt
+from torch_crps.integral_crps import crps_integral
 
 
 @pytest.mark.parametrize(
@@ -44,7 +45,7 @@ def test_crps_analytical_normal_batched_smoke(use_cuda: bool):
         pytest.param(True, marks=needs_cuda, id="cuda"),
     ],
 )
-def test_crps_analytical_naive_integral_vs_analytical_normal(use_cuda: bool):
+def test_crps_analytical_integral_vs_analytical_normal(use_cuda: bool):
     """Test that naive integral method matches the analytical solution for Normal distributions."""
     torch.manual_seed(0)
 
@@ -57,7 +58,7 @@ def test_crps_analytical_naive_integral_vs_analytical_normal(use_cuda: bool):
     y = torch.tensor([0.5, 0.0, 4.5, -6.0], device="cuda" if use_cuda else "cpu")
 
     # Compute CRPS.
-    crps_naive = crps_analytical_naive_integral(normal_dist, y, x_min=-10, x_max=10, x_steps=10001)
+    crps_naive = crps_integral(normal_dist, y, x_min=-10, x_max=10, x_steps=10001)
     crps_analytical = crps_analytical_normal(normal_dist, y)
 
     # Print the results for comparison.
@@ -79,7 +80,7 @@ def test_crps_analytical_naive_integral_vs_analytical_normal(use_cuda: bool):
         pytest.param(True, marks=needs_cuda, id="cuda"),
     ],
 )
-def test_crps_analytical_naive_integral_vs_analytical_studentt(use_cuda: bool):
+def test_crps_analytical_integral_vs_analytical_studentt(use_cuda: bool):
     """Test that naive integral method matches the analytical solution for StudentT distributions."""
     torch.manual_seed(0)
 
@@ -93,7 +94,7 @@ def test_crps_analytical_naive_integral_vs_analytical_studentt(use_cuda: bool):
     y = torch.tensor([0.5, 0.0, 4.5, -6.0], device="cuda" if use_cuda else "cpu")
 
     # Compute CRPS.
-    crps_naive = crps_analytical_naive_integral(studentt_dist, y, x_min=-10, x_max=10, x_steps=10001)
+    crps_naive = crps_integral(studentt_dist, y, x_min=-10, x_max=10, x_steps=10001)
     crps_analytical = crps_analytical_studentt(studentt_dist, y)
 
     # Print the results for comparison.
