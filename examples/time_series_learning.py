@@ -6,6 +6,8 @@ import seaborn
 import torch
 from matplotlib.figure import Figure
 
+from torch_crps.analytical_crps import crps_analytical_normal
+
 EXAMPLES_DIR = pathlib.Path(pathlib.Path(__file__).parent)
 
 torch.set_default_dtype(torch.float32)
@@ -27,35 +29,28 @@ class SimpleDistributionalModel(torch.nn.Module):
             dropout: Dropout rate for regularization.
         """
         super().__init__()
-        self.conv = torch.nn.Conv1d(dim_input, hidden_size, kernel_size=5, padding=2)
-        self.dropout = torch.nn.Dropout(dropout)
-        self.activation = torch.nn.Tanh()
+        # Use GRU which is designed for sequential data
+        self.gru = torch.nn.GRU(dim_input, hidden_size, num_layers=2, batch_first=True, dropout=0.0)
+        self.activation = torch.nn.SiLU()
         self.output_projection = torch.nn.Linear(hidden_size, dim_output * 2)  # output mean and scale for each feature
         self.dof = dof
 
-    def forward(self, x: torch.Tensor) -> torch.distributions.StudentT:
+    def forward(self, x: torch.Tensor) -> torch.distributions.Distribution:
         """Forward pass through the model.
 
         Args:
             x: Input tensor of shape (num_samples, seq_len, dim_input).
 
         Returns:
-            num_samples independent StudentT distribution instances.
+            num_samples independent torch distribution instances.
         """
-        # Transpose for Conv1d: (batch, channels, seq_len)
-        x = x.transpose(1, 2)
+        # Pass through GRU
+        x, _ = self.gru(x)  # shape: (num_samples, seq_len, hidden_size)
 
-        # Apply temporal convolution with activation
-        x = torch.relu(self.conv(x))
-
-        # Transpose back: (batch, seq_len, hidden_size)
-        x = x.transpose(1, 2)
-
-        # Only use the last time step's feature for output prediction.
+        # Use the last output.
         x = x[:, -1, :]  # shape: (num_samples, hidden_size)
 
         x = self.activation(x)
-        x = self.dropout(x)
         x = self.output_projection(x)
 
         # Split into mean and scale parameters.
@@ -63,7 +58,8 @@ class SimpleDistributionalModel(torch.nn.Module):
         scale = torch.nn.functional.softplus(scale_raw) + 1e-4  # ensure positive scale with reasonable minimum
 
         # Create num_samples independent StudentT distributions with fixed dof.
-        dist = torch.distributions.StudentT(df=self.dof, loc=loc, scale=scale)
+        # dist = torch.distributions.StudentT(df=self.dof, loc=loc, scale=scale)
+        dist = torch.distributions.Normal(loc=loc, scale=scale)
 
         return dist
 
@@ -102,6 +98,7 @@ def simple_training(
     packed_targets: torch.Tensor,
     dataset_name: str,
     normalized_data: bool,
+    use_crps: bool,
     device: torch.device,
 ) -> None:
     """A bare bones training loop for the time series model that works on windowed data.
@@ -114,6 +111,7 @@ def simple_training(
         packed_targets: Target tensor of shape (num_samples, dim_output).
         dataset_name: Name of the dataset.
         normalized_data: Whether the data is normalized.
+        use_crps: If True, use CRPS loss. If false, use negative log-likelihood loss.
         device: Device to run training on.
     """
     # Move data to device.
@@ -122,11 +120,11 @@ def simple_training(
 
     # Use a simple heuristic for the optimization hyper-parameters.
     if dataset_name == "monthly_sunspots" and not normalized_data:  # data is in [0, 100] so we need more steps
-        num_epochs = 2001
-        lr = 5e-3
+        num_epochs = 5001
+        lr = 4e-3
     else:
-        num_epochs = 4001
-        lr = 5e-3
+        num_epochs = 2001
+        lr = 2e-3
 
     optim = torch.optim.Adam([{"params": model.parameters()}], lr=lr, eps=1e-8)
 
@@ -137,7 +135,12 @@ def simple_training(
 
         # Make the predictions.
         packed_predictions = model(packed_inputs)
-        loss = -packed_predictions.log_prob(packed_targets).mean()
+
+        # Compute the loss, lower is better in both cases.
+        if use_crps:
+            loss = crps_analytical_normal(packed_predictions, packed_targets).mean()
+        else:
+            loss = -packed_predictions.log_prob(packed_targets).mean()
 
         # Call the optimizer.
         loss.backward()
@@ -184,10 +187,16 @@ def evaluate_model(
     model.eval()
     predictions_mean_list, predictions_std_list = [], []
 
-    for idx in range(len_window, data.size(0)):
-        idx_begin = idx - len_window
-        inp = data[idx_begin:idx, :].unsqueeze(0).to(device)  # shape: (1, len_window, dim_data)
-        dist = model(inp)
+    for idx in range(1, data.size(0)):
+        idx_begin = max(idx - len_window, 0)
+        inp = data[idx_begin:idx, :]
+
+        # Pad with zeros from the left to keep input length constant.
+        pad = (0, 0, len_window - inp.size(0), 0)
+        inp_padded = torch.nn.functional.pad(inp, pad, mode="constant", value=0)
+        inp_padded = inp_padded.unsqueeze(0).to(device)  # shape: (1, len_window, dim_data)
+
+        dist = model(inp_padded)
         predictions_mean_list.append(dist.mean.squeeze(0))
         predictions_std_list.append(dist.stddev.squeeze(0))
 
@@ -261,13 +270,14 @@ def plot_results(
 
 if __name__ == "__main__":
     seaborn.set_theme()
+    torch.manual_seed(0)
 
     # Configure.
-    torch.manual_seed(0)
-    normalize_data = True  # scales the data to be in [-1, 1]
-    dataset_name = "monthly_sunspots"  # monthly_sunspots or mackey_glass
-    len_window = 20  # tested 10 and 20
-    dim_hidden = 128  # increased for better expressiveness
+    normalize_data = True  # scales the data to be in [-1, 1] (recommended for monthly_sunspots dataset)
+    dataset_name = "mackey_glass"  # monthly_sunspots or mackey_glass
+    use_crps = True  # if True, use CRPS loss instead of NLL
+    len_window = 10  # tested 10 and 20
+    dim_hidden = 64
 
     # Setup device (use GPU if available)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -283,37 +293,44 @@ if __name__ == "__main__":
     print(f"Number of parameters: {sum(p.numel() for p in model.parameters() if p.requires_grad)}")
 
     # Create data set with rolling forecast scheme (i is input, t is target).
-    # Only use complete windows (no padding) to avoid confusing the model with zeros.
+    # i t ...
+    # i i t ...
+    # i i ... t
     inputs = []
     targets = []
     for idx in range(len_window, data_trn.size(0)):
-        idx_begin = idx - len_window
+        # Slice the input.
+        idx_begin = max(idx - len_window, 0)
         inp = data_trn[idx_begin:idx, :].view(-1, dim_data)
 
+        # Pad with zeros. This is not special to the models in this repo, but rather to the dataset structure.
+        pad = (0, 0, len_window - inp.size(0), 0)  # from the left pad such that the input length is always 20
+        inp_padded = torch.nn.functional.pad(inp, pad, mode="constant", value=0)
+
         # Store the data.
-        inputs.append(inp)
-        targets.append(data_trn[idx, :].view(-1, dim_data))
+        inputs.append(inp_padded)
+        targets.append(data_trn[idx, :].view(-1))
 
     # Collect all and bring it in the form for batch processing.
     packed_inputs = torch.stack(inputs, dim=0)  # shape = (num_samples, len_window, dim_data)
     packed_targets = torch.stack(targets, dim=0)  # shape = (num_samples, dim_data)
 
     # Run a simple optimization loop.
-    simple_training(model, packed_inputs, packed_targets, dataset_name, normalize_data, device)
+    simple_training(model, packed_inputs, packed_targets, dataset_name, normalize_data, use_crps, device)
 
     # Evaluate the model using the same rolling window approach as training.
     predictions_trn_mean, predictions_trn_std = evaluate_model(model, data_trn, len_window, device)
     predictions_tst_mean, predictions_tst_std = evaluate_model(model, data_tst, len_window, device)
 
-    # Plot the results (skip the first len_window points since we don't have predictions for them).
+    # Plot the results (skip the first point since we predict from index 1 onward).
     fig = plot_results(
         dataset_name,
-        data_trn[len_window:],
-        data_tst[len_window:],
+        data_trn[1:],
+        data_tst[1:],
         predictions_trn_mean,
         predictions_trn_std,
         predictions_tst_mean,
         predictions_tst_std,
     )
     plt.savefig(EXAMPLES_DIR / f"time_series_learning_{dataset_name}.png", dpi=300)
-    plt.show()
+    print(f"Figure saved to {EXAMPLES_DIR / f'time_series_learning_{dataset_name}.png'}")
