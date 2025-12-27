@@ -1,9 +1,11 @@
+from typing import Any
+
 import pytest
 import torch
 from torch.distributions import Normal, StudentT
 
 from tests.conftest import needs_cuda
-from torch_crps import crps_analytical_naive_integral, crps_analytical_normal, crps_analytical_studentt
+from torch_crps import crps_analytical, crps_analytical_normal, crps_analytical_studentt
 
 
 @pytest.mark.parametrize(
@@ -36,77 +38,6 @@ def test_crps_analytical_normal_batched_smoke(use_cuda: bool):
 
 
 @pytest.mark.parametrize(
-    "use_cuda",
-    [
-        pytest.param(False, id="cpu"),
-        pytest.param(True, marks=needs_cuda, id="cuda"),
-    ],
-)
-def test_crps_analytical_naive_integral_vs_analytical_normal(use_cuda: bool):
-    """Test that naive integral method matches the analytical solution for Normal distributions."""
-    torch.manual_seed(0)
-
-    # Define 4 independent univariate Normal distributions.
-    mu = torch.tensor([0.0, 0.0, 3.0, -7.0], device="cuda" if use_cuda else "cpu")
-    sigma = torch.tensor([1.0, 0.01, 1.5, 0.5], device="cuda" if use_cuda else "cpu")
-    normal_dist = torch.distributions.Normal(loc=mu, scale=sigma)
-
-    # Define observed values, one for each distribution.
-    y = torch.tensor([0.5, 0.0, 4.5, -6.0], device="cuda" if use_cuda else "cpu")
-
-    # Compute CRPS.
-    crps_naive = crps_analytical_naive_integral(normal_dist, y, x_min=-10, x_max=10, x_steps=10001)
-    crps_analytical = crps_analytical_normal(normal_dist, y)
-
-    # Print the results for comparison.
-    print("Naive integral CRPS:", crps_naive)
-    print("Analytical CRPS:", crps_analytical)
-    print("Absolute difference:", torch.abs(crps_naive - crps_analytical))
-
-    # Assert that both methods agree within numerical tolerance.
-    assert torch.allclose(crps_naive, crps_analytical, atol=1e-3, rtol=5e-4), (
-        f"CRPS values do not match: naive={crps_naive}, analytical={crps_analytical}"
-    )
-    assert crps_naive.device == crps_analytical.device == y.device, "CRPS output device should match input device."
-
-
-@pytest.mark.parametrize(
-    "use_cuda",
-    [
-        pytest.param(False, id="cpu"),
-        pytest.param(True, marks=needs_cuda, id="cuda"),
-    ],
-)
-def test_crps_analytical_naive_integral_vs_analytical_studentt(use_cuda: bool):
-    """Test that naive integral method matches the analytical solution for StudentT distributions."""
-    torch.manual_seed(0)
-
-    # Define 4 independent univariate StudentT distributions.
-    df = torch.tensor([100.0, 3.0, 5.0, 5.0], device="cuda" if use_cuda else "cpu")
-    mu = torch.tensor([0.0, 0.0, 3.0, -7.0], device="cuda" if use_cuda else "cpu")
-    sigma = torch.tensor([1.0, 0.01, 1.5, 0.5], device="cuda" if use_cuda else "cpu")
-    studentt_dist = torch.distributions.StudentT(df=df, loc=mu, scale=sigma)
-
-    # Define observed values, one for each distribution.
-    y = torch.tensor([0.5, 0.0, 4.5, -6.0], device="cuda" if use_cuda else "cpu")
-
-    # Compute CRPS.
-    crps_naive = crps_analytical_naive_integral(studentt_dist, y, x_min=-10, x_max=10, x_steps=10001)
-    crps_analytical = crps_analytical_studentt(studentt_dist, y)
-
-    # Print the results for comparison.
-    print("Naive integral CRPS:", crps_naive)
-    print("Analytical CRPS:", crps_analytical)
-    print("Absolute difference:", torch.abs(crps_naive - crps_analytical))
-
-    # Assert that both methods agree within numerical tolerance.
-    assert torch.allclose(crps_naive, crps_analytical, atol=1e-3, rtol=5e-4), (
-        f"CRPS values do not match: naive={crps_naive}, analytical={crps_analytical}"
-    )
-    assert crps_naive.device == crps_analytical.device == y.device, "CRPS output device should match input device."
-
-
-@pytest.mark.parametrize(
     "loc, scale",
     [
         (torch.tensor(0.0), torch.tensor(1.0)),
@@ -133,3 +64,27 @@ def test_studentt_convergence_to_normal(loc: torch.Tensor, scale: torch.Tensor, 
     assert torch.allclose(crps_studentt, crps_normal, atol=2e-3), (
         "StudentT CRPS with high 'df' should match Normal CRPS."
     )
+
+
+@pytest.mark.parametrize(
+    "q",
+    [
+        torch.distributions.Normal(loc=torch.zeros(3), scale=torch.ones(3)),
+        torch.distributions.StudentT(df=5, loc=torch.zeros(3), scale=torch.ones(3)),
+        "NOT_A_SUPPORTED_DISTRIBUTION",
+    ],
+    ids=["Normal", "StudentT", "not_supported"],
+)
+def test_crps_analytical_interface_smoke(q: Any):  # noqa: ANN401
+    """Test if the top-level interface function is working"""
+    y = torch.zeros(3)  # can be the same for all tests
+
+    if isinstance(q, (Normal, StudentT)):
+        # Supported, should return a result.
+        crps = crps_analytical(q, y)
+        assert isinstance(crps, torch.Tensor)
+
+    else:
+        # Not supported, should raise an error.
+        with pytest.raises(NotImplementedError):
+            crps_analytical(q, y)
