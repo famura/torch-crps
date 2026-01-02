@@ -140,6 +140,7 @@ ignore = [
   "PLC0415", # import should be at the top-level of a file
   "PLR", # pylint refactor
   "RUF001", # allow for greek letters
+  "UP035", # allow importing Callable from typing
 ]
 preview = true
 

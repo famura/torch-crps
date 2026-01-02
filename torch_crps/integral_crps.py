@@ -17,7 +17,8 @@ def crps_integral(
         This function is not differentiable with respect to `y` due to the indicator function.
 
     Args:
-        q: A PyTorch distribution object, typically a model's output distribution.
+        q: A PyTorch distribution object, typically a model's output distribution. This object class must have a `cdf`
+            method implemented.
         y: Observed values, of shape (num_samples,).
         x_min: Lower limit for integration for the probability space.
         x_max: Upper limit for integration for the probability space.
@@ -30,7 +31,7 @@ def crps_integral(
     def integrand(x: torch.Tensor) -> torch.Tensor:
         """Compute the integrand $F(x) - 1(y <= x))^2$ to be used by the torch integration function."""
         if not isinstance(q, StudentT):
-            # Default case.
+            # Default case, try to access the distribution's CDF method.
             cdf_value = q.cdf(x)
         else:
             # Special case for torch's StudentT distributions which do not have a cdf method implemented.
