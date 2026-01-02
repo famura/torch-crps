@@ -98,9 +98,10 @@ def test_nomrmalization_wrapper_output_consistency(wrapped_crps_fcn: Callable, n
     else:
         raise NotImplementedError("Test case setup error.")
 
-    # Calculate the CRPS and verify that it is normalized. The first case is all zeros.
+    # Calculate the CRPS and verify that it is non-negative. We can not assume that it is <= 1, because the CRPS value
+    # can be larger than the normalization factor.
     for i in range(0, 12, 2):
         y = i * torch.randn(num_y)
         ncrps = wrapped_crps_fcn(q, y)
         assert torch.all(ncrps >= 0)
-        assert torch.all(ncrps <= 1)
+        assert torch.all(ncrps < 1e2)  # reasonable upper bound check

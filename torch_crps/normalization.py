@@ -9,6 +9,11 @@ WRAPPED_INPUT_TYPE: TypeAlias = torch.distributions.Distribution | torch.Tensor 
 def normalize_by_observation(crps_fcn: Callable) -> Callable:
     """A decorator that normalizes the output of a CRPS function by the absolute maximum of the observations `y`.
 
+    Note:
+        - The resulting value is not guaranteed to be <= 1, because the (original) CRPS value can be larger than the
+        normalization factor computed from the observations `y`.
+        - If the observations `y` are all close to zero, then the normalization is done by 1, so the CRPS can be > 1.
+
     Args:
         crps_fcn: CRPS-calculating function to be wrapped. The fucntion must accept an argument called y which is
             at the 2nd position.
@@ -37,7 +42,7 @@ def normalize_by_observation(crps_fcn: Callable) -> Callable:
 
         # Calculate the normalization factor.
         abs_max_y = y.abs().max()
-        if torch.isclose(abs_max_y, torch.zeros(1, device=abs_max_y.device, dtype=abs_max_y.dtype), atol=1e-5):
+        if torch.isclose(abs_max_y, torch.zeros(1, device=abs_max_y.device, dtype=abs_max_y.dtype), atol=1e-6):
             # Avoid division by values close to zero.
             abs_max_y = torch.ones(1, device=abs_max_y.device, dtype=abs_max_y.dtype)
 
