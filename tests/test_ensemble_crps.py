@@ -22,7 +22,7 @@ from torch_crps import crps_ensemble, crps_ensemble_naive
         pytest.param(True, marks=needs_cuda, id="cuda"),
     ],
 )
-def test_crps_ensemble_smoke(
+def test_ensemble_smoke(
     test_case_fixture_name: str, crps_fcn: Callable, biased: bool, use_cuda: bool, request: FixtureRequest
 ):
     """Test that naive ensemble method yield."""
@@ -46,7 +46,7 @@ def test_crps_ensemble_smoke(
     ids=["case_flat_1d", "case_batched_2d", "case_batched_3d"],
 )
 @pytest.mark.parametrize("biased", [True, False], ids=["biased", "unbiased"])
-def test_crps_ensemble_match(batch_shape: tuple[int, ...], biased: bool, dim_ensemble: int = 10):
+def test_ensemble_match(batch_shape: tuple[int, ...], biased: bool, dim_ensemble: int = 10):
     """Test that both implementations of crps_ensemble yield the same result."""
     torch.manual_seed(0)
 
@@ -67,7 +67,7 @@ def test_crps_ensemble_match(batch_shape: tuple[int, ...], biased: bool, dim_ens
     )
 
 
-def test_crps_ensemble_invalid_shapes(dim_ensemble: int = 10):
+def test_ensemble_invalid_shapes(dim_ensemble: int = 10):
     """Test that crps_ensemble raises an error for invalid input shapes."""
     # Mismatch in the number of batch dimensions.
     x = torch.randn(2, 3, dim_ensemble)

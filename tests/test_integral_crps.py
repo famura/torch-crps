@@ -12,7 +12,7 @@ from torch_crps import crps_analytical_normal, crps_analytical_studentt, crps_in
         pytest.param(True, marks=needs_cuda, id="cuda"),
     ],
 )
-def test_crps_integral_vs_analytical_normal(use_cuda: bool):
+def test_integral_vs_analytical_normal(use_cuda: bool):
     """Test that naive integral method matches the analytical solution for Normal distributions."""
     torch.manual_seed(0)
 
@@ -47,7 +47,7 @@ def test_crps_integral_vs_analytical_normal(use_cuda: bool):
         pytest.param(True, marks=needs_cuda, id="cuda"),
     ],
 )
-def test_crps_integral_vs_analytical_studentt(use_cuda: bool):
+def test_integral_vs_analytical_studentt(use_cuda: bool):
     """Test that naive integral method matches the analytical solution for StudentT distributions."""
     torch.manual_seed(0)
 

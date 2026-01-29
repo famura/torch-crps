@@ -3,10 +3,17 @@ from typing import Any, Callable
 import pytest
 import torch
 from torch.distributions import Normal, StudentT
+from typing_extensions import Literal
 
 from tests.conftest import needs_cuda
-from torch_crps import crps_analytical, crps_analytical_normal, crps_analytical_studentt, scrps_analytical_normal
-from torch_crps.analytical_crps import scrps_analytical
+from torch_crps import (
+    crps_analytical,
+    crps_analytical_normal,
+    crps_analytical_studentt,
+    scrps_analytical,
+    scrps_analytical_normal,
+    scrps_analytical_studentt,
+)
 
 
 @pytest.mark.parametrize(
@@ -17,7 +24,7 @@ from torch_crps.analytical_crps import scrps_analytical
     ],
 )
 @pytest.mark.parametrize("crps_fcn", [crps_analytical_normal, scrps_analytical_normal], ids=["CRPS", "SCRPS"])
-def test_crps_analytical_normal_batched_smoke(use_cuda: bool, crps_fcn: Callable):
+def test_analytical_normal_batched_smoke(use_cuda: bool, crps_fcn: Callable[..., torch.Tensor]):
     """Test that analytical solution works with batched Normal distributions."""
     torch.manual_seed(0)
 
@@ -50,7 +57,10 @@ def test_crps_analytical_normal_batched_smoke(use_cuda: bool, crps_fcn: Callable
     ids=["standard", "shifted_scaled", "neg-mean_large-var"],
 )
 @pytest.mark.parametrize("y", [torch.tensor([-10.0, -1.0, 0.0, 0.5, 2.0, 5.0])])
-def test_studentt_convergence_to_normal(loc: torch.Tensor, scale: torch.Tensor, y: torch.Tensor):
+@pytest.mark.parametrize("crps_fcn_type", ["CRPS", "SCRPS"], ids=["CRPS", "SCRPS"])
+def test_studentt_convergence_to_normal(
+    loc: torch.Tensor, scale: torch.Tensor, y: torch.Tensor, crps_fcn_type: Literal["CRPS", "SCRPS"]
+):
     """Test that for a very high degrees of freedom, the StudentT CRPS converges to the Normal CRPS.
     This validates both implementations against each other.
     """
@@ -60,11 +70,15 @@ def test_studentt_convergence_to_normal(loc: torch.Tensor, scale: torch.Tensor, 
     q_normal = Normal(loc=loc, scale=scale)
 
     # Calculate the analytical CRPS for both.
-    crps_studentt = crps_analytical_studentt(q_studentt, y)
-    crps_normal = crps_analytical_normal(q_normal, y)
+    if crps_fcn_type == "CRPS":
+        score_value_studentt = crps_analytical_studentt(q_studentt, y)
+        score_value_normal = crps_analytical_normal(q_normal, y)
+    else:
+        score_value_studentt = scrps_analytical_studentt(q_studentt, y)
+        score_value_normal = scrps_analytical_normal(q_normal, y)
 
     # Assert that their results are nearly identical.
-    assert torch.allclose(crps_studentt, crps_normal, atol=2e-3), (
+    assert torch.allclose(score_value_studentt, score_value_normal, atol=2e-3), (
         "StudentT CRPS with high 'df' should match Normal CRPS."
     )
 
@@ -79,7 +93,7 @@ def test_studentt_convergence_to_normal(loc: torch.Tensor, scale: torch.Tensor, 
     ids=["Normal", "StudentT", "not_supported"],
 )
 @pytest.mark.parametrize("crps_fcn", [crps_analytical, scrps_analytical], ids=["CRPS", "SCRPS"])
-def test_crps_analytical_interface_smoke(q: Any, crps_fcn: Callable):  # noqa: ANN401
+def test_analytical_interface_smoke(q: Any, crps_fcn: Callable[..., torch.Tensor]):  # noqa: ANN401
     """Test if the top-level interface function is working"""
     y = torch.zeros(3)  # can be the same for all tests
 

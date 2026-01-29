@@ -29,7 +29,7 @@ from torch_crps import (
         "crps_integral_normalized",
     ],
 )
-def test_nomrmalization_wrapper_input_errors(wrapped_crps_fcn: Callable, num_y: int = 3):
+def test_normalization_wrapper_input_errors(wrapped_crps_fcn: Callable, num_y: int = 3):
     """Test if the normalization wrapper handles the underlying function's arguments correctly."""
     torch.manual_seed(0)
 
@@ -84,7 +84,7 @@ def test_nomrmalization_wrapper_input_errors(wrapped_crps_fcn: Callable, num_y: 
     ],
 )
 @pytest.mark.parametrize("num_y", [1, 5, 100], ids=["1_obs", "5_obs", "100_obs"])
-def test_nomrmalization_wrapper_output_consistency(wrapped_crps_fcn: Callable, num_y: int):
+def test_normalization_wrapper_output_consistency(wrapped_crps_fcn: Callable, num_y: int):
     """Test if the normalization wrapper results in normalized CRPS values."""
     torch.manual_seed(0)
 

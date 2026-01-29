@@ -62,6 +62,46 @@ def scrps_analytical(
         )
 
 
+def _accuracy_normal(
+    q: Normal,
+    y: torch.Tensor,
+) -> torch.Tensor:
+    """Compute accuracy term A = E[|X - y|] for a normal distribution.
+
+    Args:
+        q: A PyTorch Normal distribution object, typically a model's output distribution.
+        y: Observed values, of shape (num_samples,).
+
+    Returns:
+        Accuracy values for each observation, of shape (num_samples,).
+    """
+    z = (y - q.loc) / q.scale
+    standard_normal = torch.distributions.Normal(0, 1)
+
+    cdf_z = standard_normal.cdf(z)
+    pdf_z = torch.exp(standard_normal.log_prob(z))
+
+    return q.scale * (z * (2 * cdf_z - 1) + 2 * pdf_z)
+
+
+def _dispersion_normal(
+    q: Normal,
+    y: torch.Tensor,
+) -> torch.Tensor:
+    """Compute dispersion term D = E[|X - X'|] for a normal distribution.
+
+    Args:
+        q: A PyTorch Normal distribution object, typically a model's output distribution.
+        y: Observed values, of shape (num_samples,).
+
+    Returns:
+        Dispersion values for each observation, of shape (num_samples,).
+    """
+    sqrt_pi = torch.sqrt(torch.tensor(torch.pi, device=y.device, dtype=y.dtype))
+
+    return 2 * q.scale / sqrt_pi
+
+
 def crps_analytical_normal(
     q: Normal,
     y: torch.Tensor,
@@ -79,17 +119,9 @@ def crps_analytical_normal(
     Returns:
         CRPS values for each observation, of shape (num_samples,).
     """
-    # Compute standard normal CDF and PDF.
-    z = (y - q.loc) / q.scale  # standardize
-    standard_normal = torch.distributions.Normal(0, 1)
-    cdf_z = standard_normal.cdf(z)  # Φ(z)
-    pdf_z = torch.exp(standard_normal.log_prob(z))  # φ(z)
-
-    # Analytical CRPS formula.
-    sqrt_pi = torch.sqrt(torch.tensor(torch.pi, device=z.device, dtype=z.dtype))
-    crps = q.scale * (z * (2 * cdf_z - 1) + 2 * pdf_z - 1 / sqrt_pi)
-
-    return crps
+    accuracy = _accuracy_normal(q, y)
+    dispersion = _dispersion_normal(q, y)
+    return accuracy - dispersion / 2
 
 
 def scrps_analytical_normal(
@@ -113,26 +145,14 @@ def scrps_analytical_normal(
     Returns:
         SCRPS values for each observation, of shape (num_samples,).
     """
-    # --- Dispersion Term D := E[|X - X'|] = 2σ / √π
-    sqrt_pi = torch.sqrt(torch.tensor(torch.pi, device=y.device, dtype=y.dtype))
-    dispersion = 2 * q.scale / sqrt_pi
-
-    # --- Accuracy Term A := E[|X - y|]
-    z = (y - q.loc) / q.scale  # standardize
-    standard_normal = torch.distributions.Normal(0, 1)
-    cdf_z = standard_normal.cdf(z)  # Φ(z)
-    pdf_z = torch.exp(standard_normal.log_prob(z))  # φ(z)
-    accuracy = q.scale * (z * (2 * cdf_z - 1) + 2 * pdf_z)
-
-    # --- SCRPS (negatively-oriented) := (A / D) + 0.5 * log(D)
-    scrps = accuracy / dispersion + 0.5 * torch.log(dispersion)
-
-    return scrps
+    accuracy = _accuracy_normal(q, y)
+    dispersion = _dispersion_normal(q, y)
+    return accuracy / dispersion + 0.5 * torch.log(dispersion)
 
 
 def standardized_studentt_cdf_via_scipy(
     z: torch.Tensor,
-    df: torch.Tensor | float,
+    nu: torch.Tensor | float,
 ) -> torch.Tensor:
     """Since the `torch.distributions.StudentT` class does not have a `cdf()` method, we resort to scipy which has
     a stable implementation.
@@ -143,7 +163,7 @@ def standardized_studentt_cdf_via_scipy(
 
     Args:
         z: Standardized values at which to evaluate the CDF.
-        df: Degrees of freedom of the StudentT distribution.
+        nu: Degrees of freedom of the StudentT distribution.
 
     Returns:
         CDF values of the standardized StudentT distribution at `z`.
@@ -157,9 +177,9 @@ def standardized_studentt_cdf_via_scipy(
         ) from e
 
     z_np = z.detach().cpu().numpy()
-    df_np = df.detach().cpu().numpy() if isinstance(df, torch.Tensor) else df
+    nu_np = nu.detach().cpu().numpy() if isinstance(nu, torch.Tensor) else nu
 
-    cdf_z_np = scipy_student_t.cdf(z_np, df=df_np)
+    cdf_z_np = scipy_student_t.cdf(x=z_np, df=nu_np)
 
     return torch.from_numpy(cdf_z_np).to(device=z.device, dtype=z.dtype)
 
@@ -215,7 +235,7 @@ def crps_analytical_studentt(
     # Compute the beta function ratio: B(1/2, ν - 1/2) / B(1/2, ν/2)^2
     # Using the relationship: B(a,b) = Gamma(a) * Gamma(b) / Gamma(a+b)
     # B(1/2, ν - 1/2) / B(1/2, ν/2)^2 = ( Gamma(1/2) * Gamma(ν-1/2) / Gamma(ν) ) /
-    #                                     ( Gamma(1/2) * Gamma(ν/2) / Gamma(ν/2 + 1/2) )^2
+    #                                   ( Gamma(1/2) * Gamma(ν/2) / Gamma(ν/2 + 1/2) )^2
     # Simplifying to Gamma(ν - 1/2) Gamma(ν/2 + 1/2)^2 / ( Gamma(ν)Gamma(ν/2)^2 )
     # For numerical stability, we compute in log space.
     log_gamma_half = torch.lgamma(torch.tensor(0.5, dtype=nu.dtype, device=nu.device))
@@ -295,7 +315,7 @@ def scrps_analytical_studentt(
     z = (y - mu) / sigma
 
     # Compute Beta function term B(ν/2, 1/2).
-    lgamma_half = torch.lgamma(torch.tensor(0.5, dtype=nu.dtype, device=nu.device))
+    lgamma_half = torch.lgamma(torch.tensor(0.5, dtype=dtype, device=device))
     log_beta_term = torch.lgamma(nu / 2) + lgamma_half - torch.lgamma((nu + 1) / 2)
     beta_term = torch.exp(log_beta_term)
 
@@ -307,10 +327,9 @@ def scrps_analytical_studentt(
     term_A2_cdf_arg = z * torch.sqrt((nu + 1) / (nu + z**2))
     cdf_nu_plus_1_term = standardized_studentt_cdf_via_scipy(term_A2_cdf_arg, nu + 1)
     term_A2 = term_A2_factor * cdf_nu_plus_1_term
-
     accuracy = sigma * (term_A1 + term_A2)
 
-    # --- 3. SCRPS (negatively-oriented) := (A / D) + 0.5 * log(D)
+    # --- SCRPS (negatively-oriented) := (A / D) + 0.5 * log(D)
     scrps = accuracy / dispersion + 0.5 * log_dispersion
 
     return scrps
