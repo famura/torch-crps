@@ -1,7 +1,7 @@
 import torch
 from torch.distributions import Distribution, StudentT
 
-from torch_crps.analytical_crps import standardized_studentt_cdf_via_scipy
+from torch_crps.analytical.studentt import standardized_studentt_cdf_via_scipy
 
 
 def crps_integral(

@@ -1,11 +1,6 @@
-from .analytical_crps import (
-    crps_analytical,
-    crps_analytical_normal,
-    crps_analytical_studentt,
-    scrps_analytical,
-    scrps_analytical_normal,
-    scrps_analytical_studentt,
-)
+from .analytical import crps_analytical, scrps_analytical
+from .analytical.normal import crps_analytical_normal, scrps_analytical_normal
+from .analytical.studentt import crps_analytical_studentt, scrps_analytical_studentt
 from .ensemble_crps import crps_ensemble, crps_ensemble_naive
 from .integral_crps import crps_integral
 from .normalization import normalize_by_observation

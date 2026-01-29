@@ -2,9 +2,9 @@ from pathlib import Path
 
 import pytest
 import torch
-from torch.distributions import StudentT
+from torch.distributions import Normal, StudentT
 
-from torch_crps.analytical_crps import standardized_studentt_cdf_via_scipy
+from torch_crps.analytical.studentt import standardized_studentt_cdf_via_scipy
 
 results_dir = Path(__file__).parent / "results"
 results_dir.mkdir(parents=True, exist_ok=True)
@@ -54,7 +54,36 @@ def case_batched_3d():
     }
 
 
-def _crps_analytical_studentt_jordan(
+def crps_analytical_normal_gneiting(
+    q: Normal,
+    y: torch.Tensor,
+) -> torch.Tensor:
+    """Compute the analytical CRPS assuming a normal distribution.
+
+    See Also:
+        Gneiting & Raftery; "Strictly Proper Scoring Rules, Prediction, and Estimation"; 2007
+        Equation (5) for the analytical formula for CRPS of Normal distribution.
+
+    Args:
+        q: A PyTorch Normal distribution object, typically a model's output distribution.
+        y: Observed values, of shape (num_samples,).
+
+    Returns:
+        CRPS values for each observation, of shape (num_samples,).
+    """
+    # Compute standard normal CDF and PDF.
+    z = (y - q.loc) / q.scale
+    standard_normal = torch.distributions.Normal(0, 1)
+    phi_z = standard_normal.cdf(z)  # Φ(z)
+    pdf_z = torch.exp(standard_normal.log_prob(z))  # φ(z)
+
+    # Analytical CRPS formula.
+    crps = q.scale * (z * (2 * phi_z - 1) + 2 * pdf_z - 1 / torch.sqrt(torch.tensor(torch.pi)))
+
+    return crps
+
+
+def crps_analytical_studentt_jordan(
     q: StudentT,
     y: torch.Tensor,
 ) -> torch.Tensor:

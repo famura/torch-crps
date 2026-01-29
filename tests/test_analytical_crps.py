@@ -5,13 +5,11 @@ import torch
 from torch.distributions import Normal, StudentT
 from typing_extensions import Literal
 
-from tests.conftest import _crps_analytical_studentt_jordan, needs_cuda
-from torch_crps import (
-    crps_analytical,
-    crps_analytical_normal,
+from tests.conftest import crps_analytical_normal_gneiting, crps_analytical_studentt_jordan, needs_cuda
+from torch_crps.analytical import crps_analytical, scrps_analytical
+from torch_crps.analytical.normal import crps_analytical_normal, scrps_analytical_normal
+from torch_crps.analytical.studentt import (
     crps_analytical_studentt,
-    scrps_analytical,
-    scrps_analytical_normal,
 )
 
 
@@ -126,7 +124,31 @@ def test_analytical_interface_smoke(q: Any, crps_fcn: Callable[..., torch.Tensor
             crps_fcn(q, y)
 
 
-def test_analytical_studentt_consistency():
+def test_analytical_crps_normal_consistency():
+    """Test if the two ways to compute the CRPS for normal distributions give the same result:
+
+    - old method: `crps_analytical_normal_gneiting`
+    - new method: `_accuracy_normal_gneiting` and `_dispersion_normal_gneiting` packaged in `crps_analytical_normal`
+    """
+    torch.manual_seed(0)
+
+    # Create a Normal distribution.
+    loc = torch.tensor([0.0, 1.0, -1.0])
+    scale = torch.tensor([1.0, 2.0, 0.5])
+    normal_dist = torch.distributions.Normal(loc=loc, scale=scale)
+
+    # Define observed values.
+    y = torch.tensor([0.5, 2.0, -0.5])
+
+    # Compute CRPS values.
+    crps_old = crps_analytical_normal_gneiting(normal_dist, y)
+    crps_new = crps_analytical_normal(normal_dist, y)
+
+    # Assert that both methods give the same result.
+    assert torch.allclose(crps_old, crps_new, atol=1e-6), "CRPS values from both methods should match."
+
+
+def test_analytical_crps_studentt_consistency():
     """Test if the two ways to compute the CRPS for StudentT distributions give the same result:
 
     - old method: `_crps_analytical_studentt_jordan`
@@ -144,8 +166,8 @@ def test_analytical_studentt_consistency():
     y = torch.tensor([0.5, 2.0, -0.5])
 
     # Compute CRPS values.
-    crps_old = _crps_analytical_studentt_jordan(studentt_dist, y)
+    crps_old = crps_analytical_studentt_jordan(studentt_dist, y)
     crps_new = crps_analytical_studentt(studentt_dist, y)
 
     # Assert that both methods give the same result.
-    assert torch.allclose(crps_old, crps_new, atol=1e-4), "CRPS values from both methods should match."
+    assert torch.allclose(crps_old, crps_new, atol=1e-6), "CRPS values from both methods should match."

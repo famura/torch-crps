@@ -2,7 +2,9 @@ import pytest
 import torch
 
 from tests.conftest import needs_cuda
-from torch_crps import crps_analytical_normal, crps_analytical_studentt, crps_integral
+from torch_crps import crps_integral
+from torch_crps.analytical.normal import crps_analytical_normal
+from torch_crps.analytical.studentt import crps_analytical_studentt
 
 
 @pytest.mark.parametrize(
