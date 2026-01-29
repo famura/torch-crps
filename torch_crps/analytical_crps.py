@@ -237,16 +237,23 @@ def _dispersion_studentt_jordan(
     """
     nu, sigma = q.df, q.scale
 
-    # D = 2σ * (2 * sqrt(v) / (v - 1)) * Γ(v/2) / (Γ((v-1)/2) * Γ(0.5))
-    # We compute in log space for numerical stability (prevent under- or overflow).
-    lgamma_nu_half = torch.lgamma(nu / 2)
-    lgamma_nu_minus_1_half = torch.lgamma((nu - 1) / 2)
-    # lgamma_half = torch.log(torch.sqrt(torch.tensor(torch.pi, device=nu.device, dtype=nu.dtype)))  # Γ(0.5) = sqrt(π)
-    # TODO
-    lgamma_half = torch.lgamma(torch.tensor(0.5, device=nu.device))
-    gamma_term = torch.exp(lgamma_nu_half - lgamma_nu_minus_1_half - lgamma_half)
+    # D = 2σ * 2 * torch.sqrt(v) / (v - 1) * beta_frac,
+    # where beta_frac = B(1/2, v - 1/2) / B(1/2, v/2)^2
+    log_gamma_half = torch.lgamma(torch.tensor(0.5, dtype=nu.dtype, device=nu.device))
+    log_gamma_df_minus_half = torch.lgamma(nu - 0.5)
+    log_gamma_df_half = torch.lgamma(nu / 2)
+    log_gamma_df_half_plus_half = torch.lgamma(nu / 2 + 0.5)
 
-    dispersion = 2 * sigma * (2 * torch.sqrt(nu) / (nu - 1)) * gamma_term
+    log_beta_ratio = (
+        log_gamma_half
+        + log_gamma_df_minus_half
+        - torch.lgamma(nu)
+        - 2 * (log_gamma_half + log_gamma_df_half - log_gamma_df_half_plus_half)
+    )
+    beta_frac = torch.exp(log_beta_ratio)
+
+    dispersion_constant = (2 * torch.sqrt(nu) / (nu - 1)) * beta_frac
+    dispersion = sigma * 2 * dispersion_constant
     return dispersion
 
 
