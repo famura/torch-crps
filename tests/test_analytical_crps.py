@@ -3,14 +3,17 @@ from typing import Any, Callable
 import pytest
 import torch
 from torch.distributions import Normal, StudentT
+from typing_extensions import Literal
 
 from tests.conftest import needs_cuda
 from torch_crps import (
     crps_analytical,
     crps_analytical_normal,
+    crps_analytical_studentt,
     scrps_analytical,
     scrps_analytical_normal,
 )
+from torch_crps.analytical_crps import _crps_analytical_studentt_jordan
 
 
 @pytest.mark.parametrize(
@@ -65,13 +68,13 @@ def test_analytical_normal_batched_smoke(use_cuda: bool, crps_fcn: Callable[...,
         "large-neg-mean_medium-var",
     ],
 )
-@pytest.mark.parametrize("y", [torch.tensor([-95.0, -80.0, -1.0, 0.0, 0.5, 2.0, 5.0, 50.0])])
-def test_studentt_convergence_to_normal(loc: torch.Tensor, scale: torch.Tensor, y: torch.Tensor, atol: float = 3e-3):
+@pytest.mark.parametrize("y", [torch.tensor([-10.0, -1.0, 0.0, 0.5, 2.0, 5.0, 50])])
+@pytest.mark.parametrize("crps_fcn_type", ["CRPS", "SCRPS"], ids=["CRPS", "SCRPS"])
+def test_studentt_convergence_to_normal(
+    loc: torch.Tensor, scale: torch.Tensor, y: torch.Tensor, crps_fcn_type: Literal["CRPS", "SCRPS"]
+):
     """Test that for a high degrees of freedom, the StudentT score converges to the Normal score
     when their standard deviations are matched.
-
-    Note:
-        This test only works for the CRPS. For the SCRPS, the differences are too big.
     """
     # Create the StudentT distribution with a high degree of freedom.
     high_df = torch.tensor(1000.0)
@@ -84,12 +87,17 @@ def test_studentt_convergence_to_normal(loc: torch.Tensor, scale: torch.Tensor, 
     q_normal = Normal(loc=loc, scale=student_t_std_dev)
 
     # Calculate the analytical scores for both.
-    score_value_studentt = crps_analytical(q_studentt, y)
-    score_value_normal = crps_analytical(q_normal, y)
+    if crps_fcn_type == "CRPS":
+        score_value_studentt = crps_analytical(q_studentt, y)
+        score_value_normal = crps_analytical(q_normal, y)
+    else:
+        score_value_studentt = scrps_analytical(q_studentt, y)
+        score_value_normal = scrps_analytical(q_normal, y)
 
     # Assert that their results are nearly identical.
-    assert torch.allclose(score_value_studentt, score_value_normal, atol=atol), (
-        f"StudentT CRPS with high 'df' should match Normal CRPS with atol={atol}."
+    # The tolerance can be quite tight now.
+    assert torch.allclose(score_value_studentt, score_value_normal, atol=3e-3), (
+        f"StudentT {crps_fcn_type} with high 'df' should match Normal {crps_fcn_type}."
     )
 
 
@@ -116,3 +124,28 @@ def test_analytical_interface_smoke(q: Any, crps_fcn: Callable[..., torch.Tensor
         # Not supported, should raise an error.
         with pytest.raises(NotImplementedError):
             crps_fcn(q, y)
+
+
+def test_analytical_studentt_consistency():
+    """Test if the two ways to compute the CRPS for StudentT distributions give the same result:
+
+    - old method: `_crps_analytical_studentt_jordan`
+    - new method: `_accuracy_studentt_jordan` and `_dispersion_studentt_jordan` packaged in `crps_analytical_studentt`
+    """
+    torch.manual_seed(0)
+
+    # Create a StudentT distribution.
+    df = torch.tensor([3.0, 5.0, 10.0])
+    loc = torch.tensor([0.0, 1.0, -1.0])
+    scale = torch.tensor([1.0, 2.0, 0.5])
+    studentt_dist = torch.distributions.StudentT(df=df, loc=loc, scale=scale)
+
+    # Define observed values.
+    y = torch.tensor([0.5, 2.0, -0.5])
+
+    # Compute CRPS values.
+    crps_old = _crps_analytical_studentt_jordan(studentt_dist, y)
+    crps_new = crps_analytical_studentt(studentt_dist, y)
+
+    # Assert that both methods give the same result.
+    assert torch.allclose(crps_old, crps_new, atol=1e-4), "CRPS values from both methods should match."

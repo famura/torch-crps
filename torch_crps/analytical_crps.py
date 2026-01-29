@@ -102,6 +102,35 @@ def _dispersion_normal(
     return 2 * q.scale / sqrt_pi
 
 
+def _crps_analytical_normal_gneiting(
+    q: Normal,
+    y: torch.Tensor,
+) -> torch.Tensor:
+    """Compute the analytical CRPS assuming a normal distribution.
+
+    See Also:
+        Gneiting & Raftery; "Strictly Proper Scoring Rules, Prediction, and Estimation"; 2007
+        Equation (5) for the analytical formula for CRPS of Normal distribution.
+
+    Args:
+        q: A PyTorch Normal distribution object, typically a model's output distribution.
+        y: Observed values, of shape (num_samples,).
+
+    Returns:
+        CRPS values for each observation, of shape (num_samples,).
+    """
+    # Compute standard normal CDF and PDF.
+    z = (y - q.loc) / q.scale  # standardize
+    standard_normal = torch.distributions.Normal(0, 1)
+    phi_z = standard_normal.cdf(z)  # Φ(z)
+    pdf_z = torch.exp(standard_normal.log_prob(z))  # φ(z)
+
+    # Analytical CRPS formula.
+    crps = q.scale * (z * (2 * phi_z - 1) + 2 * pdf_z - 1 / torch.sqrt(torch.tensor(torch.pi)))
+
+    return crps
+
+
 def crps_analytical_normal(
     q: Normal,
     y: torch.Tensor,
@@ -188,10 +217,46 @@ def standardized_studentt_cdf_via_scipy(
     return torch.from_numpy(cdf_z_np).to(device=z.device, dtype=z.dtype)
 
 
-def _dispersion_studentt(
+def _dispersion_studentt_jordan(
+    q: StudentT,
+) -> torch.Tensor:
+    r"""Computes the dispersion term D = E[|Y - Y'|] for the Student-T distribution.
+
+    $$
+    D = 2 \sigma \left( \frac{2\sqrt{\nu}}{\nu-1} \frac{\Gamma(\nu/2)}{\Gamma((\nu-1)/2)\Gamma(1/2)} \right)
+    $$
+
+    See Also:
+        Jordan et al.; "Evaluating Probabilistic Forecasts with scoringRules"; 2019.
+
+    Args:
+        q: A PyTorch StudentT distribution object, typically a model's output distribution.
+
+    Returns:
+        Dispersion values for each observation, of shape (num_samples,).
+    """
+    nu, sigma = q.df, q.scale
+
+    # D = 2σ * (2 * sqrt(v) / (v - 1)) * Γ(v/2) / (Γ((v-1)/2) * Γ(0.5))
+    # We compute in log space for numerical stability (prevent under- or overflow).
+    lgamma_nu_half = torch.lgamma(nu / 2)
+    lgamma_nu_minus_1_half = torch.lgamma((nu - 1) / 2)
+    # lgamma_half = torch.log(torch.sqrt(torch.tensor(torch.pi, device=nu.device, dtype=nu.dtype)))  # Γ(0.5) = sqrt(π)
+    # TODO
+    lgamma_half = torch.lgamma(torch.tensor(0.5, device=nu.device))
+    gamma_term = torch.exp(lgamma_nu_half - lgamma_nu_minus_1_half - lgamma_half)
+
+    dispersion = 2 * sigma * (2 * torch.sqrt(nu) / (nu - 1)) * gamma_term
+    return dispersion
+
+
+def _dispersion_studentt_bollin(
     q: StudentT,
 ) -> torch.Tensor:
     """Computes the dispersion term D = E[|Y - Y'|] for the Student-T distribution.
+
+    See Also:
+        Bolin & Wallin; "Local scale invariance and robustness of proper scoring rules"; 2019.
 
     Args:
         q: A PyTorch StudentT distribution object, typically a model's output distribution.
@@ -202,7 +267,7 @@ def _dispersion_studentt(
     nu, sigma = q.df, q.scale
 
     # D = (4σ / (ν-1)) * (Γ(ν/2) / Γ((ν-1)/2))²
-    # We compute in log space for numerical stability.
+    # We compute in log space for numerical stability (prevent under- or overflow).
     log_4 = torch.log(torch.tensor(4.0, dtype=nu.dtype, device=nu.device))
     log_dispersion = (
         log_4 + torch.log(sigma) - torch.log(nu - 1) + 2 * (torch.lgamma(nu / 2) - torch.lgamma((nu - 1) / 2))
@@ -211,7 +276,41 @@ def _dispersion_studentt(
     return torch.exp(log_dispersion)
 
 
-def _accuracy_studentt_bollin_wallin(q: StudentT, y: torch.Tensor) -> torch.Tensor:
+def _accuracy_studentt_jordan(q: StudentT, y: torch.Tensor) -> torch.Tensor:
+    r"""Computes the accuracy term A = E[|Y - y|] for the Student-T distribution.
+
+    $$
+    A = \sigma \left[ z(2F_{t,\nu}(z) - 1) + 2 \frac{\nu+z^2}{\nu-1} f_{t,\nu}(z) \right]
+    $$
+
+    See Also:
+        Jordan et al.; "Evaluating Probabilistic Forecasts with scoringRules"; 2019.
+
+    Args:
+        q: A PyTorch StudentT distribution object, typically a model's output distribution.
+        y: Observed values, of shape (num_samples,).
+
+    Returns:
+        Accuracy values for each observation, of shape (num_samples,).
+    """
+    nu, mu, sigma = q.df, q.loc, q.scale
+
+    # Standardize, and create standard StudentT distribution for CDF and PDF.
+    z = (y - mu) / sigma
+    standard_t = StudentT(nu, loc=torch.zeros_like(mu), scale=torch.ones_like(sigma))
+
+    # Compute standardized CDF F_ν(z) and PDF f_ν(z).
+    cdf_z = standardized_studentt_cdf_via_scipy(z, nu)
+    pdf_z = torch.exp(standard_t.log_prob(z))
+
+    # A = sigma * [z * (2*F(z) - 1) + 2*f(z) * (v + z^2) / (v-1) ]
+    accuracy_unscaled = z * (2 * cdf_z - 1) + 2 * pdf_z * (nu + z**2) / (nu - 1)
+
+    accuracy = sigma * accuracy_unscaled
+    return accuracy
+
+
+def _accuracy_studentt_bollin(q: StudentT, y: torch.Tensor) -> torch.Tensor:
     """Computes the accuracy term A = E[|Y - y|] for the Student-T distribution.
 
     See Also:
@@ -225,8 +324,6 @@ def _accuracy_studentt_bollin_wallin(q: StudentT, y: torch.Tensor) -> torch.Tens
         Accuracy values for each observation, of shape (num_samples,).
     """
     nu, mu, sigma = q.df, q.loc, q.scale
-    if torch.any(nu <= 1):
-        raise ValueError("StudentT accuracy requires degrees of freedom > 1")
 
     # Standardize the observed values.
     z = (y - mu) / sigma
@@ -304,8 +401,6 @@ def _crps_analytical_studentt_jordan(
 
     return crps
 
-
-def _accuracy_studentt_jordan(q: StudentT, y: torch.Tensor) -> torch.Tensor:
     """Compute the consistent accuracy term A by deriving it from the CRPS identity `A = CRPS + 0.5 * D`.
 
     Args:
@@ -316,7 +411,7 @@ def _accuracy_studentt_jordan(q: StudentT, y: torch.Tensor) -> torch.Tensor:
         Accuracy values for each observation, of shape (num_samples,).
     """
     crps = _crps_analytical_studentt_jordan(q, y)
-    dispersion = _dispersion_studentt(q)
+    dispersion = _dispersion_studentt_jordan(q)
     return crps + 0.5 * dispersion
 
 
@@ -346,7 +441,7 @@ def crps_analytical_studentt(
         This formula is only valid for degrees of freedom $\nu > 1$.
 
     See Also:
-        Jordan et al.; "Evaluating Probabilistic Forecasts with scoringRules"; 2019; Appendix A.2.
+        Jordan et al.; "Evaluating Probabilistic Forecasts with scoringRules"; 2019.
 
     Args:
         q: A PyTorch StudentT distribution object, typically a model's output distribution.
@@ -355,7 +450,14 @@ def crps_analytical_studentt(
     Returns:
         CRPS values for each observation, of shape (num_samples,).
     """
-    return _crps_analytical_studentt_jordan(q, y)
+    if torch.any(q.df <= 1):
+        raise ValueError("StudentT SCRPS requires degrees of freedom > 1")
+
+    accuracy = _accuracy_studentt_jordan(q, y)
+    dispersion = _dispersion_studentt_jordan(q)
+
+    crps = accuracy - dispersion / 2
+    return crps
 
 
 def scrps_analytical_studentt(
@@ -391,7 +493,7 @@ def scrps_analytical_studentt(
         raise ValueError("StudentT SCRPS requires degrees of freedom > 1")
 
     accuracy = _accuracy_studentt_jordan(q, y)
-    dispersion = _dispersion_studentt(q)
+    dispersion = _dispersion_studentt_jordan(q)
 
-    scrps = accuracy / dispersion + 0.5 * torch.log(dispersion)
+    scrps = accuracy / dispersion + torch.log(dispersion) / 2
     return scrps
