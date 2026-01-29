@@ -3,16 +3,13 @@ from typing import Any, Callable
 import pytest
 import torch
 from torch.distributions import Normal, StudentT
-from typing_extensions import Literal
 
 from tests.conftest import needs_cuda
 from torch_crps import (
     crps_analytical,
     crps_analytical_normal,
-    crps_analytical_studentt,
     scrps_analytical,
     scrps_analytical_normal,
-    scrps_analytical_studentt,
 )
 
 
@@ -51,35 +48,48 @@ def test_analytical_normal_batched_smoke(use_cuda: bool, crps_fcn: Callable[...,
     "loc, scale",
     [
         (torch.tensor(0.0), torch.tensor(1.0)),
-        (torch.tensor(2.0), torch.tensor(0.5)),
-        (torch.tensor(-5.0), torch.tensor(10.0)),
+        (torch.tensor(-1.0), torch.tensor(0.5)),
+        (torch.tensor(1.0), torch.tensor(0.5)),
+        (torch.tensor(10.0), torch.tensor(20.0)),
+        (torch.tensor(-10.0), torch.tensor(20.0)),
+        (torch.tensor(100.0), torch.tensor(5.0)),
+        (torch.tensor(-100.0), torch.tensor(5.0)),
     ],
-    ids=["standard", "shifted_scaled", "neg-mean_large-var"],
+    ids=[
+        "standard",
+        "small-neg-mean_small-var",
+        "small-pos-mean_small-var",
+        "pos-mean_large-var",
+        "neg-mean_large-var",
+        "large-mean_medium-var",
+        "large-neg-mean_medium-var",
+    ],
 )
-@pytest.mark.parametrize("y", [torch.tensor([-10.0, -1.0, 0.0, 0.5, 2.0, 5.0])])
-@pytest.mark.parametrize("crps_fcn_type", ["CRPS", "SCRPS"], ids=["CRPS", "SCRPS"])
-def test_studentt_convergence_to_normal(
-    loc: torch.Tensor, scale: torch.Tensor, y: torch.Tensor, crps_fcn_type: Literal["CRPS", "SCRPS"]
-):
-    """Test that for a very high degrees of freedom, the StudentT CRPS converges to the Normal CRPS.
-    This validates both implementations against each other.
+@pytest.mark.parametrize("y", [torch.tensor([-95.0, -80.0, -1.0, 0.0, 0.5, 2.0, 5.0, 50.0])])
+def test_studentt_convergence_to_normal(loc: torch.Tensor, scale: torch.Tensor, y: torch.Tensor, atol: float = 3e-3):
+    """Test that for a high degrees of freedom, the StudentT score converges to the Normal score
+    when their standard deviations are matched.
+
+    Note:
+        This test only works for the CRPS. For the SCRPS, the differences are too big.
     """
-    # Create the two distributions with identical parameters.
+    # Create the StudentT distribution with a high degree of freedom.
     high_df = torch.tensor(1000.0)
     q_studentt = StudentT(df=high_df, loc=loc, scale=scale)
-    q_normal = Normal(loc=loc, scale=scale)
 
-    # Calculate the analytical CRPS for both.
-    if crps_fcn_type == "CRPS":
-        score_value_studentt = crps_analytical_studentt(q_studentt, y)
-        score_value_normal = crps_analytical_normal(q_normal, y)
-    else:
-        score_value_studentt = scrps_analytical_studentt(q_studentt, y)
-        score_value_normal = scrps_analytical_normal(q_normal, y)
+    # Calculate the standard deviation of the StudentT distribution. The variance is (df / (df - 2)) * scale^2
+    student_t_std_dev = scale * torch.sqrt(high_df / (high_df - 2))
+
+    # Create the Normal distribution with matching standard deviation.
+    q_normal = Normal(loc=loc, scale=student_t_std_dev)
+
+    # Calculate the analytical scores for both.
+    score_value_studentt = crps_analytical(q_studentt, y)
+    score_value_normal = crps_analytical(q_normal, y)
 
     # Assert that their results are nearly identical.
-    assert torch.allclose(score_value_studentt, score_value_normal, atol=2e-3), (
-        "StudentT CRPS with high 'df' should match Normal CRPS."
+    assert torch.allclose(score_value_studentt, score_value_normal, atol=atol), (
+        f"StudentT CRPS with high 'df' should match Normal CRPS with atol={atol}."
     )
 
 

@@ -121,7 +121,9 @@ def crps_analytical_normal(
     """
     accuracy = _accuracy_normal(q, y)
     dispersion = _dispersion_normal(q, y)
-    return accuracy - dispersion / 2
+
+    crps = accuracy - dispersion / 2
+    return crps
 
 
 def scrps_analytical_normal(
@@ -147,7 +149,9 @@ def scrps_analytical_normal(
     """
     accuracy = _accuracy_normal(q, y)
     dispersion = _dispersion_normal(q, y)
-    return accuracy / dispersion + 0.5 * torch.log(dispersion)
+
+    scrps = accuracy / dispersion + 0.5 * torch.log(dispersion)
+    return scrps
 
 
 def standardized_studentt_cdf_via_scipy(
@@ -184,40 +188,76 @@ def standardized_studentt_cdf_via_scipy(
     return torch.from_numpy(cdf_z_np).to(device=z.device, dtype=z.dtype)
 
 
-def crps_analytical_studentt(
+def _dispersion_studentt(
     q: StudentT,
-    y: torch.Tensor,
 ) -> torch.Tensor:
-    r"""Compute the (negatively-oriented) CRPS in closed-form assuming a StudentT distribution.
+    """Computes the dispersion term D = E[|Y - Y'|] for the Student-T distribution.
 
-    This implements the closed-form formula from Jordan et al. (2019), see Appendix A.2.
+    Args:
+        q: A PyTorch StudentT distribution object, typically a model's output distribution.
 
-    For the standardized StudentT distribution:
+    Returns:
+        Dispersion values for each observation, of shape (num_samples,).
+    """
+    nu, sigma = q.df, q.scale
 
-    $$ \text{CRPS}(F_\nu, z) = z(2F_\nu(z) - 1) + 2f_\nu(z)\frac{\nu + z^2}{\nu - 1}
-    - \frac{2\sqrt{\nu}}{\nu - 1} \frac{B(\frac{1}{2}, \nu - \frac{1}{2})}{B(\frac{1}{2}, \frac{\nu}{2})^2} $$
+    # D = (4σ / (ν-1)) * (Γ(ν/2) / Γ((ν-1)/2))²
+    # We compute in log space for numerical stability.
+    log_4 = torch.log(torch.tensor(4.0, dtype=nu.dtype, device=nu.device))
+    log_dispersion = (
+        log_4 + torch.log(sigma) - torch.log(nu - 1) + 2 * (torch.lgamma(nu / 2) - torch.lgamma((nu - 1) / 2))
+    )
 
-    where $z$ is the standardized value, $F_\nu$ is the CDF, $f_\nu$ is the PDF of the standard StudentT
-    distribution, $\nu$ is the degrees of freedom, and $B$ is the beta function.
+    return torch.exp(log_dispersion)
 
-    For the location-scale transformed distribution:
 
-    $$ \text{CRPS}(F_{\nu,\mu,\sigma}, y) = \sigma \cdot \text{CRPS}\left(F_\nu, \frac{y-\mu}{\sigma}\right) $$
-
-    where $\mu$ is the location parameter, $\sigma$ is the scale parameter, and $y$ is the observation.
-
-    Note:
-        This formula is only valid for degrees of freedom $\nu > 1$.
+def _accuracy_studentt_bollin_wallin(q: StudentT, y: torch.Tensor) -> torch.Tensor:
+    """Computes the accuracy term A = E[|Y - y|] for the Student-T distribution.
 
     See Also:
-        Jordan et al.; "Evaluating Probabilistic Forecasts with scoringRules"; 2019; Appendix A.2.
+        Bolin & Wallin; "Local scale invariance and robustness of proper scoring rules"; 2019.
 
     Args:
         q: A PyTorch StudentT distribution object, typically a model's output distribution.
         y: Observed values, of shape (num_samples,).
 
     Returns:
-        CRPS values for each observation, of shape (num_samples,).
+        Accuracy values for each observation, of shape (num_samples,).
+    """
+    nu, mu, sigma = q.df, q.loc, q.scale
+    if torch.any(nu <= 1):
+        raise ValueError("StudentT accuracy requires degrees of freedom > 1")
+
+    # Standardize the observed values.
+    z = (y - mu) / sigma
+
+    # Compute Beta function term B(ν/2, 1/2).
+    lgamma_half = torch.lgamma(torch.tensor(0.5, dtype=nu.dtype, device=nu.device))
+    log_beta_term = torch.lgamma(nu / 2) + lgamma_half - torch.lgamma((nu + 1) / 2)
+    beta_term = torch.exp(log_beta_term)
+
+    # z(2 F_ν(z) - 1)
+    cdf_nu_z = standardized_studentt_cdf_via_scipy(z, nu)
+    term_1 = z * (2 * cdf_nu_z - 1)
+
+    # 2(ν+z²) / ( ν*B(ν/2, 1/2) ) * F_{ν+1}(z * sqrt( (ν+1)/(ν+z²)) )
+    term_2_factor = (2 * (nu + z**2)) / (nu * beta_term)
+    term_2_cdf_arg = z * torch.sqrt((nu + 1) / (nu + z**2))
+    cdf_nu_plus_1_term = standardized_studentt_cdf_via_scipy(term_2_cdf_arg, nu + 1)
+    term_2 = term_2_factor * cdf_nu_plus_1_term
+
+    # Just like for the CRPS, this includes a transformation to and back from standardized values.
+    # A = σ * [ z(2 F_ν(z) - 1) +  2(ν+z²) / ( ν*B(ν/2, 1/2) ) * F_{ν+1}(z * sqrt( (ν+1)/(ν+z²)) ) ].
+    return sigma * (term_1 + term_2)
+
+
+def _crps_analytical_studentt_jordan(
+    q: StudentT,
+    y: torch.Tensor,
+) -> torch.Tensor:
+    r"""Compute the (negatively-oriented) CRPS in closed-form assuming a StudentT distribution.
+
+    This is a helper function such that we can use it to consistently compute the accuracy term for the SCRPS.
     """
     # Extract degrees of freedom ν, location μ, and scale σ.
     nu, mu, sigma = q.df, q.loc, q.scale
@@ -265,6 +305,59 @@ def crps_analytical_studentt(
     return crps
 
 
+def _accuracy_studentt_jordan(q: StudentT, y: torch.Tensor) -> torch.Tensor:
+    """Compute the consistent accuracy term A by deriving it from the CRPS identity `A = CRPS + 0.5 * D`.
+
+    Args:
+        q: A PyTorch StudentT distribution object, typically a model's output distribution.
+        y: Observed values, of shape (num_samples,).
+
+    Returns:
+        Accuracy values for each observation, of shape (num_samples,).
+    """
+    crps = _crps_analytical_studentt_jordan(q, y)
+    dispersion = _dispersion_studentt(q)
+    return crps + 0.5 * dispersion
+
+
+def crps_analytical_studentt(
+    q: StudentT,
+    y: torch.Tensor,
+) -> torch.Tensor:
+    r"""Compute the (negatively-oriented) CRPS in closed-form assuming a StudentT distribution.
+
+    This implements the closed-form formula from Jordan et al. (2019), see Appendix A.2.
+
+    For the standardized StudentT distribution:
+
+    $$ \text{CRPS}(F_\nu, z) = z(2F_\nu(z) - 1) + 2f_\nu(z)\frac{\nu + z^2}{\nu - 1}
+    - \frac{2\sqrt{\nu}}{\nu - 1} \frac{B(\frac{1}{2}, \nu - \frac{1}{2})}{B(\frac{1}{2}, \frac{\nu}{2})^2} $$
+
+    where $z$ is the standardized value, $F_\nu$ is the CDF, $f_\nu$ is the PDF of the standard StudentT
+    distribution, $\nu$ is the degrees of freedom, and $B$ is the beta function.
+
+    For the location-scale transformed distribution:
+
+    $$ \text{CRPS}(F_{\nu,\mu,\sigma}, y) = \sigma \cdot \text{CRPS}\left(F_\nu, \frac{y-\mu}{\sigma}\right) $$
+
+    where $\mu$ is the location parameter, $\sigma$ is the scale parameter, and $y$ is the observation.
+
+    Note:
+        This formula is only valid for degrees of freedom $\nu > 1$.
+
+    See Also:
+        Jordan et al.; "Evaluating Probabilistic Forecasts with scoringRules"; 2019; Appendix A.2.
+
+    Args:
+        q: A PyTorch StudentT distribution object, typically a model's output distribution.
+        y: Observed values, of shape (num_samples,).
+
+    Returns:
+        CRPS values for each observation, of shape (num_samples,).
+    """
+    return _crps_analytical_studentt_jordan(q, y)
+
+
 def scrps_analytical_studentt(
     q: StudentT,
     y: torch.Tensor,
@@ -294,42 +387,11 @@ def scrps_analytical_studentt(
     Returns:
         SCRPS values for each observation, of shape (num_samples,).
     """
-    # Extract degrees of freedom ν, location μ, and scale σ.
-    nu, mu, sigma = q.df, q.loc, q.scale
-    if torch.any(nu <= 1):
+    if torch.any(q.df <= 1):
         raise ValueError("StudentT SCRPS requires degrees of freedom > 1")
 
-    # Use the device of y for creating new (intermediate) tensors.
-    device, dtype = y.device, y.dtype
+    accuracy = _accuracy_studentt_jordan(q, y)
+    dispersion = _dispersion_studentt(q)
 
-    # --- Dispersion Term D := E[|X - X'|] = (4σ / (ν-1)) * (Γ(ν/2) / Γ((ν-1)/2))²
-    # We compute in log space for numerical stability.
-    log_4 = torch.log(torch.tensor(4.0, dtype=dtype, device=device))
-    log_dispersion = (
-        log_4 + torch.log(sigma) - torch.log(nu - 1) + 2 * (torch.lgamma(nu / 2) - torch.lgamma((nu - 1) / 2))
-    )
-    dispersion = torch.exp(log_dispersion)
-
-    # --- Accuracy Term A := E[|X - y|]
-    # Standardize.
-    z = (y - mu) / sigma
-
-    # Compute Beta function term B(ν/2, 1/2).
-    lgamma_half = torch.lgamma(torch.tensor(0.5, dtype=dtype, device=device))
-    log_beta_term = torch.lgamma(nu / 2) + lgamma_half - torch.lgamma((nu + 1) / 2)
-    beta_term = torch.exp(log_beta_term)
-
-    # Compute components for A = σ * [ z(2F_ν(z) - 1) + (2(ν+z²))/(ν*B(ν/2, 1/2)) * F_{ν+1}(z * sqrt( (ν+1)/(ν+z²)) ) ].
-    # Just like for the CRPS, this includes a transformation to and back from standardized values.
-    cdf_nu_z = standardized_studentt_cdf_via_scipy(z, nu)
-    term_A1 = z * (2 * cdf_nu_z - 1)
-    term_A2_factor = (2 * (nu + z**2)) / (nu * beta_term)
-    term_A2_cdf_arg = z * torch.sqrt((nu + 1) / (nu + z**2))
-    cdf_nu_plus_1_term = standardized_studentt_cdf_via_scipy(term_A2_cdf_arg, nu + 1)
-    term_A2 = term_A2_factor * cdf_nu_plus_1_term
-    accuracy = sigma * (term_A1 + term_A2)
-
-    # --- SCRPS (negatively-oriented) := (A / D) + 0.5 * log(D)
-    scrps = accuracy / dispersion + 0.5 * log_dispersion
-
+    scrps = accuracy / dispersion + 0.5 * torch.log(dispersion)
     return scrps
