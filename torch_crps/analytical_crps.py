@@ -209,8 +209,8 @@ def crps_analytical_studentt(
     standard_t = torch.distributions.StudentT(nu, loc=0, scale=1)
 
     # Compute standardized CDF F_ν(z) and PDF f_ν(z).
-    f_cdf_z = standardized_studentt_cdf_via_scipy(z, nu)
-    f_z = torch.exp(standard_t.log_prob(z))
+    cdf_z = standardized_studentt_cdf_via_scipy(z, nu)
+    pdf_z = torch.exp(standard_t.log_prob(z))
 
     # Compute the beta function ratio: B(1/2, ν - 1/2) / B(1/2, ν/2)^2
     # Using the relationship: B(a,b) = Gamma(a) * Gamma(b) / Gamma(a+b)
@@ -236,7 +236,7 @@ def crps_analytical_studentt(
 
     # Compute the CRPS for standardized values.
     crps_standard = (
-        z * (2 * f_cdf_z - 1) + 2 * f_z * (nu + z**2) / (nu - 1) - (2 * torch.sqrt(nu) / (nu - 1)) * beta_frac
+        z * (2 * cdf_z - 1) + 2 * pdf_z * (nu + z**2) / (nu - 1) - (2 * torch.sqrt(nu) / (nu - 1)) * beta_frac
     )
 
     # Apply location-scale transformation CRPS(F_{ν,μ,σ}, y) = σ * CRPS(F_{ν}, z) with z = (y - μ) / σ.
@@ -255,9 +255,11 @@ def scrps_analytical_studentt(
     $$ \text{SCRPS}(F, y) = \frac{A}{D} + 0.5 \cdot \log(D) $$
 
     where:
-    - $A = E_F[|X - y|]$ is the Accuracy term.
-    - $D = E_F[|X - X'|]$ is the Dispersion term.
-    - $F$ is the Student-T distribution $t(\nu, \mu, \sigma^2)$.
+    - $F_{\nu, \mu, \sigma^2}$ is the cumulative Student-T distribution, and $F_{\nu}$ is the standardized version.
+    - $A = E_F[|X - y|]$ is the accuracy term.
+    - $A = \sigma [ z(2 F_{\nu}(z) - 1) +  2(\nu + z²) / (\nu*B(\nu/2, 1/2)) * F_{\nu+1}(z * \sqrt{(\nu+1)/(\nu+z²)}) ]$
+    - $D = E_F[|X - X'|]$ is the cispersion term.
+    - $D = \frac{ 4\sigma }{ \nu-1 } * ( \frac{ \Gamma( \nu/2 ) }{ \Gamma( (\nu-1)/2) } )^2}$
 
     Note:
         This formula is only valid for degrees of freedom $\nu > 1$.
@@ -288,26 +290,27 @@ def scrps_analytical_studentt(
     )
     dispersion = torch.exp(log_dispersion)
 
-    # --- 2. Accuracy Term A := E[|X - y|]
-    # Standardize, and create standard StudentT distributions for CDFs.
+    # --- Accuracy Term A := E[|X - y|]
+    # Standardize.
     z = (y - mu) / sigma
-    standard_t_nu = StudentT(nu, loc=0, scale=1)
-    standard_t_nu_plus_1 = StudentT(nu + 1, loc=0, scale=1)
 
-    # Compute Beta function term B(ν/2, 1/2)
+    # Compute Beta function term B(ν/2, 1/2).
     lgamma_half = torch.lgamma(torch.tensor(0.5, dtype=nu.dtype, device=nu.device))
     log_beta_term = torch.lgamma(nu / 2) + lgamma_half - torch.lgamma((nu + 1) / 2)
     beta_term = torch.exp(log_beta_term)
 
-    # Compute components of the 'A' formula from Bolin & Wallin Appendix A.2
-    term_A1 = z * (2 * standard_t_nu.cdf(z) - 1)
-
+    # Compute components for A = σ * [ z(2F_ν(z) - 1) + (2(ν+z²))/(ν*B(ν/2, 1/2)) * F_{ν+1}(z * sqrt( (ν+1)/(ν+z²)) ) ].
+    # Just like for the CRPS, this includes a transformation to and back from standardized values.
+    cdf_nu_z = standardized_studentt_cdf_via_scipy(z, nu)
+    term_A1 = z * (2 * cdf_nu_z - 1)
     term_A2_factor = (2 * (nu + z**2)) / (nu * beta_term)
     term_A2_cdf_arg = z * torch.sqrt((nu + 1) / (nu + z**2))
-    term_A2 = term_A2_factor * standard_t_nu_plus_1.cdf(term_A2_cdf_arg)
+    cdf_nu_plus_1_term = standardized_studentt_cdf_via_scipy(term_A2_cdf_arg, nu + 1)
+    term_A2 = term_A2_factor * cdf_nu_plus_1_term
 
     accuracy = sigma * (term_A1 + term_A2)
 
     # --- 3. SCRPS (negatively-oriented) := (A / D) + 0.5 * log(D)
     scrps = accuracy / dispersion + 0.5 * log_dispersion
+
     return scrps
