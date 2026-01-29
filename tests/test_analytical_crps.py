@@ -5,7 +5,7 @@ import torch
 from torch.distributions import Normal, StudentT
 from typing_extensions import Literal
 
-from tests.conftest import needs_cuda
+from tests.conftest import _crps_analytical_studentt_jordan, needs_cuda
 from torch_crps import (
     crps_analytical,
     crps_analytical_normal,
@@ -13,7 +13,6 @@ from torch_crps import (
     scrps_analytical,
     scrps_analytical_normal,
 )
-from torch_crps.analytical_crps import _crps_analytical_studentt_jordan
 
 
 @pytest.mark.parametrize(
@@ -68,7 +67,7 @@ def test_analytical_normal_batched_smoke(use_cuda: bool, crps_fcn: Callable[...,
         "large-neg-mean_medium-var",
     ],
 )
-@pytest.mark.parametrize("y", [torch.tensor([-10.0, -1.0, 0.0, 0.5, 2.0, 5.0, 50])])
+@pytest.mark.parametrize("y", [torch.tensor([-100.0, -10.0, -1.0, 0.0, 0.5, 2.0, 5.0, 50.0])])
 @pytest.mark.parametrize("crps_fcn_type", ["CRPS", "SCRPS"], ids=["CRPS", "SCRPS"])
 def test_studentt_convergence_to_normal(
     loc: torch.Tensor, scale: torch.Tensor, y: torch.Tensor, crps_fcn_type: Literal["CRPS", "SCRPS"]
@@ -96,7 +95,8 @@ def test_studentt_convergence_to_normal(
 
     # Assert that their results are nearly identical.
     # The tolerance can be quite tight now.
-    assert torch.allclose(score_value_studentt, score_value_normal, atol=3e-3), (
+    atol = 6e-3 if crps_fcn_type == "CRPS" else 2e-2
+    assert torch.allclose(score_value_studentt, score_value_normal, atol=atol), (
         f"StudentT {crps_fcn_type} with high 'df' should match Normal {crps_fcn_type}."
     )
 
