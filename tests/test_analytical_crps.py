@@ -1,11 +1,12 @@
-from typing import Any
+from typing import Any, Callable
 
 import pytest
 import torch
 from torch.distributions import Normal, StudentT
 
 from tests.conftest import needs_cuda
-from torch_crps import crps_analytical, crps_analytical_normal, crps_analytical_studentt
+from torch_crps import crps_analytical, crps_analytical_normal, crps_analytical_studentt, scrps_analytical_normal
+from torch_crps.analytical_crps import scrps_analytical
 
 
 @pytest.mark.parametrize(
@@ -15,7 +16,8 @@ from torch_crps import crps_analytical, crps_analytical_normal, crps_analytical_
         pytest.param(True, marks=needs_cuda, id="cuda"),
     ],
 )
-def test_crps_analytical_normal_batched_smoke(use_cuda: bool):
+@pytest.mark.parametrize("crps_fcn", [crps_analytical_normal, scrps_analytical_normal], ids=["CRPS", "SCRPS"])
+def test_crps_analytical_normal_batched_smoke(use_cuda: bool, crps_fcn: Callable):
     """Test that analytical solution works with batched Normal distributions."""
     torch.manual_seed(0)
 
@@ -28,13 +30,14 @@ def test_crps_analytical_normal_batched_smoke(use_cuda: bool):
     y = torch.tensor([[0.5, 1.5], [2.5, 3.5], [-2.0, -3.0]], device="cuda" if use_cuda else "cpu")
 
     # Compute CRPS using the analytical method.
-    crps_analytical = crps_analytical_normal(normal_dist, y)
+    crps_analytical = crps_fcn(normal_dist, y)
 
     # Simple sanity check: CRPS should be non-negative.
     assert crps_analytical.shape == y.shape, "CRPS output shape should match input shape."
     assert crps_analytical.dtype in [torch.float32, torch.float64], "CRPS output dtype should be float."
     assert crps_analytical.device == y.device, "CRPS output device should match input device."
-    assert torch.all(crps_analytical >= 0), "CRPS values should be non-negative."
+    if crps_fcn == crps_analytical_normal:
+        assert torch.all(crps_analytical >= 0), "CRPS values should be non-negative."
 
 
 @pytest.mark.parametrize(
@@ -75,16 +78,17 @@ def test_studentt_convergence_to_normal(loc: torch.Tensor, scale: torch.Tensor, 
     ],
     ids=["Normal", "StudentT", "not_supported"],
 )
-def test_crps_analytical_interface_smoke(q: Any):  # noqa: ANN401
+@pytest.mark.parametrize("crps_fcn", [crps_analytical, scrps_analytical], ids=["CRPS", "SCRPS"])
+def test_crps_analytical_interface_smoke(q: Any, crps_fcn: Callable):  # noqa: ANN401
     """Test if the top-level interface function is working"""
     y = torch.zeros(3)  # can be the same for all tests
 
     if isinstance(q, (Normal, StudentT)):
         # Supported, should return a result.
-        crps = crps_analytical(q, y)
+        crps = crps_fcn(q, y)
         assert isinstance(crps, torch.Tensor)
 
     else:
         # Not supported, should raise an error.
         with pytest.raises(NotImplementedError):
-            crps_analytical(q, y)
+            crps_fcn(q, y)
