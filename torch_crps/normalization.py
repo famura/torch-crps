@@ -3,6 +3,12 @@ from typing import Callable, TypeAlias
 
 import torch
 
+from torch_crps.analytical.dispatch import crps_analytical
+from torch_crps.analytical.normal import crps_analytical_normal
+from torch_crps.analytical.studentt import crps_analytical_studentt
+from torch_crps.ensemble import crps_ensemble
+from torch_crps.integral import crps_integral
+
 WRAPPED_INPUT_TYPE: TypeAlias = torch.distributions.Distribution | torch.Tensor | float
 
 
@@ -53,3 +59,10 @@ def normalize_by_observation(crps_fcn: Callable) -> Callable:
         return crps / abs_max_y
 
     return wrapper
+
+
+crps_analytical_obsnormalized = normalize_by_observation(crps_analytical)
+crps_analytical_normal_obsnormalized = normalize_by_observation(crps_analytical_normal)
+crps_analytical_studentt_obsnormalized = normalize_by_observation(crps_analytical_studentt)
+crps_ensemble_obsnormalized = normalize_by_observation(crps_ensemble)
+crps_integral_obsnormalized = normalize_by_observation(crps_integral)
