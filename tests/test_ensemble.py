@@ -1,3 +1,4 @@
+import math
 from collections.abc import Callable
 
 import pytest
@@ -101,3 +102,43 @@ def test_ensemble_scrps_nonnegativity(num_samples: int = 100, dim_ensemble: int 
     scrps_values = scrps_ensemble(x, y, False)
 
     assert torch.any(scrps_values < 0), "SCRPS should have some negative values!"
+
+
+@pytest.mark.parametrize("seed", [0, 1, 2, 3, 4], ids=["seed_0", "seed_1", "seed_2", "seed_3", "seed_4"])
+@pytest.mark.parametrize("biased", [True, False], ids=["biased", "unbiased"])
+@pytest.mark.parametrize("scale_factor", [1e1, 1e3, 1e6, 1e9], ids=["1e1", "1e3", "1e6", "1e9"])
+def test_ensemble_scrps_scale_invariance(
+    seed: int,
+    biased: bool,
+    scale_factor: float,
+    num_samples: int = 100,
+    dim_ensemble: int = 50,
+):
+    """Test that the SCRPS is locally scale-invariant (to a certain extent)."""
+    torch.manual_seed(seed)
+    rtol = 0.5 * math.log(scale_factor)  # just an educated guess
+
+    # Create a random ensemble forecast and observations.
+    x = torch.randn(num_samples, dim_ensemble)
+    y = torch.randn(num_samples)
+    scrps_original = scrps_ensemble(x, y, biased)
+
+    # Scale the ensemble forecasts by a factor of 1000.
+    x_scaled = scale_factor * x
+    scrps_scaled = scrps_ensemble(x_scaled, y, biased)
+
+    # Assert that the SCRPS values are approximately scale-invariant.
+    assert torch.allclose(scrps_original, scrps_scaled, rtol=rtol), (
+        f"The SCRPS values are not scale-invariant as expected, i.e., scaling the forecasts by {scale_factor} "
+        f"should not change the SCRPS values by more than a factor of {rtol}, but it did."
+    )
+
+    # Scale the observations by a factor of 1000.
+    y_scaled = scale_factor * y
+    scrps_scaled = scrps_ensemble(x, y_scaled, biased)
+
+    # Assert that the SCRPS values are approximately scale-invariant.
+    assert torch.allclose(scrps_original, scrps_scaled, rtol=rtol), (
+        f"The SCRPS values are not scale-invariant as expected, i.e., scaling the observations by {scale_factor} "
+        f"should not change the SCRPS values by more than a factor of {rtol}, but it did."
+    )
