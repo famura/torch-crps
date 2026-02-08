@@ -3,6 +3,12 @@ from typing import Callable, TypeAlias
 
 import torch
 
+from torch_crps.analytical.dispatch import crps_analytical
+from torch_crps.analytical.normal import crps_analytical_normal
+from torch_crps.analytical.studentt import crps_analytical_studentt
+from torch_crps.ensemble import crps_ensemble
+from torch_crps.integral import crps_integral
+
 WRAPPED_INPUT_TYPE: TypeAlias = torch.distributions.Distribution | torch.Tensor | float
 
 
@@ -15,7 +21,7 @@ def normalize_by_observation(crps_fcn: Callable) -> Callable:
         - If the observations `y` are all close to zero, then the normalization is done by 1, so the CRPS can be > 1.
 
     Args:
-        crps_fcn: CRPS-calculating function to be wrapped. The fucntion must accept an argument called y which is
+        crps_fcn: CRPS-calculating function to be wrapped. The function must accept an argument called y which is
             at the 2nd position.
 
     Returns:
@@ -25,7 +31,7 @@ def normalize_by_observation(crps_fcn: Callable) -> Callable:
 
     @functools.wraps(crps_fcn)
     def wrapper(*args: WRAPPED_INPUT_TYPE, **kwargs: WRAPPED_INPUT_TYPE) -> torch.Tensor:
-        """The function returned by the decorator that does the normalization and the forwading to the CRPS function."""
+        """The function returned by the decorator that normalizes and forwards to the CRPS function."""
         # Find the observation 'y' from the arguments.
         if "y" in kwargs:
             y = kwargs["y"]
@@ -47,9 +53,16 @@ def normalize_by_observation(crps_fcn: Callable) -> Callable:
             abs_max_y = torch.ones(1, device=abs_max_y.device, dtype=abs_max_y.dtype)
 
         # Call the original CRPS function.
-        crps_result = crps_fcn(*args, **kwargs)
+        crps = crps_fcn(*args, **kwargs)
 
         # Normalize the result.
-        return crps_result / abs_max_y
+        return crps / abs_max_y
 
     return wrapper
+
+
+crps_analytical_obsnormalized = normalize_by_observation(crps_analytical)
+crps_analytical_normal_obsnormalized = normalize_by_observation(crps_analytical_normal)
+crps_analytical_studentt_obsnormalized = normalize_by_observation(crps_analytical_studentt)
+crps_ensemble_obsnormalized = normalize_by_observation(crps_ensemble)
+crps_integral_obsnormalized = normalize_by_observation(crps_integral)

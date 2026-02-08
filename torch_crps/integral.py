@@ -1,7 +1,7 @@
 import torch
 from torch.distributions import Distribution, StudentT
 
-from torch_crps.analytical_crps import standardized_studentt_cdf_via_scipy
+from torch_crps.analytical.studentt import standardized_studentt_cdf_via_scipy
 
 
 def crps_integral(
@@ -55,6 +55,6 @@ def crps_integral(
 
     # Compute the integral using the trapezoidal rule.
     integral_values = integrand(x_values)
-    crps_values = torch.trapezoid(integral_values, x_values.squeeze(-1), dim=0)
+    crps = torch.trapezoid(integral_values, x_values.squeeze(-1), dim=0)
 
-    return crps_values
+    return crps

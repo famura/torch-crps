@@ -15,7 +15,7 @@ import seaborn
 import torch
 from matplotlib.figure import Figure
 
-from torch_crps import crps_analytical
+from torch_crps.analytical import crps_analytical
 
 EXAMPLES_DIR = pathlib.Path(pathlib.Path(__file__).parent)
 

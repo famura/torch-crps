@@ -13,18 +13,58 @@
 [![Ruff][ruff-badge]][ruff]
 [![uv][uv-badge]][uv]
 
-Implementations of the Continuously-Ranked Probability Score (CRPS) using PyTorch
+PyTorch-based implementations of the Continuously-Ranked Probability Score (CRPS) as well as its locally scale-invariant
+version (SCRPS)
 
 ## Background
 
-The Continuously-Ranked Probability Score (CRPS) is a strictly proper scoring rule.
-It assesses how well a distribution with the cumulative distribution function $F$ is explaining an observation $y$
+### Continuously-Ranked Probability Score (CRPS)
 
-$$ \text{CRPS}(F,y) = \int _{\mathbb {R} }(F(x)-\mathbb {1} (x\geq y))^{2}dx \qquad (\text{integral formulation}) $$
+The CRPS is a strictly proper scoring rule.
+It assesses how well a distribution with the cumulative distribution function $F(X)$ of the estimate $X$ (a random
+variable) is explaining an observation $y$
+
+$$
+\text{CRPS}(F,y) = \int _{\mathbb {R}} \left( F(x)-\mathbb {1} (x\geq y) \right)^{2} dx
+$$
 
 where $1$ denoted the indicator function.
 
-In Section 2 of this [paper][crps-folumations] Zamo & Naveau list 3 different formulations of the CRPS.
+In Section 2 of this [paper][crps-folumations] Zamo & Naveau list 3 different formulations of the CRPS. One of them is
+
+$$
+\text{CRPS}(F, y) = E[|X - y|] - 0.5 E[|X - X'|] = E[|X - y|] + E[X] - 2 E[X F(X)]
+$$
+
+which can be shortened to
+
+$$
+\text{CRPS}(F, y) = A - 0.5 D
+$$
+
+where $A$ is called the accuracy term and $D$ is called the disperion term (at least I do it in this repo).
+
+### Scaled Continuously-Ranked Probability Score (SCRPS)
+
+The SCRPS is a locally scale-invariant version of the CRPS.
+In their [paper][scrps-paper], Bolling & Wallin define it in a positively-oriented, i.e., higher is better.
+In contrast, I implement the SCRPS in this repo negatively-oriented, just like a loss function.
+
+Oversimplifying the notation, the (negatively-oriented) SCRPS can be written as
+
+$$
+\text{SCRPS}(F, y) = -\frac{E[|X - y|]}{E[|X - X'|]} - 0.5 \log \left( E[|X - X'|] \right)
+$$
+
+which can be shortened to
+
+$$
+\text{SCRPS}(F, y) = \frac{A}{D} + 0.5 \log(D)
+$$
+
+The scale-invariance, i.e., the SCRPS value does not depend on the magnitude of $D$, comes from the division by $D$.
+
+Note that the SCRPS can, in contrast to the CRPS, yield negative values.
 
 ### Incomplete list of sources that I came across while researching about the CRPS
 
@@ -33,6 +73,7 @@ In Section 2 of this [paper][crps-folumations] Zamo & Naveau list 3 different fo
 - Gneiting & Raftery; "Strictly Proper Scoring Rules, Prediction, and Estimation"; 2007
 - Zamo & Naveau; "Estimation of the Continuous Ranked Probability Score with Limited Information and Applications to Ensemble Weather Forecasts"; 2018
 - Jordan et al.; "Evaluating Probabilistic Forecasts with scoringRules"; 2019
+- Bollin & Wallin; "Local scale invariance and robustness of proper scoring rules"; 2029
 - Olivares & Négiar & Ma et al; "CLOVER: Probabilistic Forecasting with Coherent Learning Objective Reparameterization"; 2023
 - Vermorel & Tikhonov; "Continuously-Ranked Probability Score (CRPS)" [blog post][Lokad-post]; 2024
 - Nvidia; "PhysicsNeMo Framework" [source code][nvidia-crps-implementation]; 2025
@@ -40,8 +81,8 @@ In Section 2 of this [paper][crps-folumations] Zamo & Naveau list 3 different fo
 
 ## Application to Machine Learning
 
-The CRPS can be used as a loss function in machine learning, just like the well-known negative log-likelihood loss which
-is the log scoring rule.
+The CRPS, as well as the SCRPS, can be used as a loss function in machine learning, just like the well-known negative
+log-likelihood loss which is the log scoring rule.
 
 The parametrized model outputs a distribution $q(x)$. The CRPS loss evaluates how good $q(x)$ is explaining the
 observation $y$.
@@ -54,7 +95,15 @@ There is [work on multi-variate CRPS estimation][multivariate-crps], but it is n
 
 ## Implementation
 
-The integral formulation is infeasible to naively evaluate on a computer due to the infinite integration over $x$.
+The direct implementation of the integral formulation is not suited to evaluate on a computer due to the infinite
+integration over the domain of the random variable $X$.
+Nevertheless, this repository includes such an implementation to verify the others.
+
+The normalization-by-observation variants are improper solutions to normalize the CPRS values. The goal is to use the
+CPRS as a loss function in machine learning tasks. For that, it is highly beneficial if the loss does not depend on
+the scale of the problem.
+However, deviding by the absolute maximum of the observations is a bad proxy for doing this.
+I plan on removing these methods once I gained trust in my SCRPS implementation.
 
 I found [Nvidia's implementation][nvidia-crps-implementation] of the CRPS for ensemble preductions in $M log(M)$ time
 inspiring to read.
@@ -89,6 +138,7 @@ inspiring to read.
 [uv]: https://docs.astral.sh/uv
 <!-- Paper URLS-->
 [crps-folumations]: https://link.springer.com/article/10.1007/s11004-017-9709-7
+[scrps-paper]: https://arxiv.org/abs/1912.05642
 [Lokad-post]: https://www.lokad.com/continuous-ranked-probability-score/
 [multivariate-crps]: https://arxiv.org/pdf/2410.09133
 [nvidia-crps-implementation]: https://docs.nvidia.com/physicsnemo/25.11/_modules/physicsnemo/metrics/general/crps.html

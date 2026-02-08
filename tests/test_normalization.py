@@ -4,41 +4,45 @@ import pytest
 import torch
 
 from torch_crps import (
-    crps_analytical_normal_normalized,
-    crps_analytical_normalized,
-    crps_analytical_studentt_normalized,
-    crps_ensemble_normalized,
-    crps_integral_normalized,
+    crps_analytical_normal_obsnormalized,
+    crps_analytical_obsnormalized,
+    crps_analytical_studentt_obsnormalized,
+    crps_ensemble_obsnormalized,
+    crps_integral_obsnormalized,
 )
 
 
 @pytest.mark.parametrize(
     "wrapped_crps_fcn",
     [
-        crps_analytical_normal_normalized,
-        crps_analytical_normalized,
-        crps_analytical_studentt_normalized,
-        crps_ensemble_normalized,
-        crps_integral_normalized,
+        crps_analytical_normal_obsnormalized,
+        crps_analytical_obsnormalized,
+        crps_analytical_studentt_obsnormalized,
+        crps_ensemble_obsnormalized,
+        crps_integral_obsnormalized,
     ],
     ids=[
-        "crps_analytical_normal_normalized",
-        "crps_analytical_normalized",
-        "crps_analytical_studentt_normalized",
-        "crps_ensemble_normalized",
-        "crps_integral_normalized",
+        "crps_analytical_normal_obsnormalized",
+        "crps_analytical_obsnormalized",
+        "crps_analytical_studentt_obsnormalized",
+        "crps_ensemble_obsnormalized",
+        "crps_integral_obsnormalized",
     ],
 )
-def test_nomrmalization_wrapper_input_errors(wrapped_crps_fcn: Callable, num_y: int = 3):
+def test_normalization_wrapper_input_errors(wrapped_crps_fcn: Callable, num_y: int = 3):
     """Test if the normalization wrapper handles the underlying function's arguments correctly."""
     torch.manual_seed(0)
 
     # Set up test cases.
-    if wrapped_crps_fcn in (crps_analytical_normal_normalized, crps_analytical_normalized, crps_integral_normalized):
+    if wrapped_crps_fcn in (
+        crps_analytical_normal_obsnormalized,
+        crps_analytical_obsnormalized,
+        crps_integral_obsnormalized,
+    ):
         q = torch.distributions.Normal(loc=torch.zeros(num_y), scale=torch.ones(num_y))
-    elif wrapped_crps_fcn == crps_analytical_studentt_normalized:
+    elif wrapped_crps_fcn == crps_analytical_studentt_obsnormalized:
         q = torch.distributions.StudentT(df=5 * torch.ones(num_y), loc=torch.zeros(num_y), scale=torch.ones(num_y))
-    elif wrapped_crps_fcn == crps_ensemble_normalized:
+    elif wrapped_crps_fcn == crps_ensemble_obsnormalized:
         q = torch.randn(num_y, 10)  # dim_ensemble = 10
     else:
         raise NotImplementedError("Test case setup error.")
@@ -69,31 +73,35 @@ def test_nomrmalization_wrapper_input_errors(wrapped_crps_fcn: Callable, num_y: 
 @pytest.mark.parametrize(
     "wrapped_crps_fcn",
     [
-        crps_analytical_normal_normalized,
-        crps_analytical_normalized,
-        crps_analytical_studentt_normalized,
-        crps_ensemble_normalized,
-        crps_integral_normalized,
+        crps_analytical_normal_obsnormalized,
+        crps_analytical_obsnormalized,
+        crps_analytical_studentt_obsnormalized,
+        crps_ensemble_obsnormalized,
+        crps_integral_obsnormalized,
     ],
     ids=[
-        "crps_analytical_normal_normalized",
-        "crps_analytical_normalized",
-        "crps_analytical_studentt_normalized",
-        "crps_ensemble_normalized",
-        "crps_integral_normalized",
+        "crps_analytical_normal_obsnormalized",
+        "crps_analytical_obsnormalized",
+        "crps_analytical_studentt_obsnormalized",
+        "crps_ensemble_obsnormalized",
+        "crps_integral_obsnormalized",
     ],
 )
 @pytest.mark.parametrize("num_y", [1, 5, 100], ids=["1_obs", "5_obs", "100_obs"])
-def test_nomrmalization_wrapper_output_consistency(wrapped_crps_fcn: Callable, num_y: int):
+def test_normalization_wrapper_output_consistency(wrapped_crps_fcn: Callable, num_y: int):
     """Test if the normalization wrapper results in normalized CRPS values."""
     torch.manual_seed(0)
 
     # Set up test cases.
-    if wrapped_crps_fcn in (crps_analytical_normal_normalized, crps_analytical_normalized, crps_integral_normalized):
+    if wrapped_crps_fcn in (
+        crps_analytical_normal_obsnormalized,
+        crps_analytical_obsnormalized,
+        crps_integral_obsnormalized,
+    ):
         q = torch.distributions.Normal(loc=torch.zeros(num_y), scale=torch.ones(num_y))
-    elif wrapped_crps_fcn == crps_analytical_studentt_normalized:
+    elif wrapped_crps_fcn == crps_analytical_studentt_obsnormalized:
         q = torch.distributions.StudentT(df=5 * torch.ones(num_y), loc=torch.zeros(num_y), scale=torch.ones(num_y))
-    elif wrapped_crps_fcn == crps_ensemble_normalized:
+    elif wrapped_crps_fcn == crps_ensemble_obsnormalized:
         q = torch.randn(num_y, 10)  # dim_ensemble = 10
     else:
         raise NotImplementedError("Test case setup error.")
