@@ -21,7 +21,7 @@ def normalize_by_observation(crps_fcn: Callable) -> Callable:
         - If the observations `y` are all close to zero, then the normalization is done by 1, so the CRPS can be > 1.
 
     Args:
-        crps_fcn: CRPS-calculating function to be wrapped. The fucntion must accept an argument called y which is
+        crps_fcn: CRPS-calculating function to be wrapped. The function must accept an argument called y which is
             at the 2nd position.
 
     Returns:
@@ -31,7 +31,7 @@ def normalize_by_observation(crps_fcn: Callable) -> Callable:
 
     @functools.wraps(crps_fcn)
     def wrapper(*args: WRAPPED_INPUT_TYPE, **kwargs: WRAPPED_INPUT_TYPE) -> torch.Tensor:
-        """The function returned by the decorator that does the normalization and the forwading to the CRPS function."""
+        """The function returned by the decorator that normalizes and forwards to the CRPS function."""
         # Find the observation 'y' from the arguments.
         if "y" in kwargs:
             y = kwargs["y"]
