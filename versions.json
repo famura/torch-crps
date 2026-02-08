@@ -1,5 +1,12 @@
 [
   {
+    "version": "next-pr-15",
+    "title": "next-pr-15",
+    "aliases": [
+      "pr-15"
+    ]
+  },
+  {
     "version": "0.1",
     "title": "0.1",
     "aliases": [
