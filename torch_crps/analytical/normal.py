@@ -69,7 +69,15 @@ def scrps_analytical_normal(
     q: Normal,
     y: torch.Tensor,
 ) -> torch.Tensor:
-    """Compute the (negatively-oriented) scaled CRPS (SCRPS) in closed-form assuming a normal distribution.
+    r"""Compute the (negatively-oriented) Scaled CRPS (SCRPS) in closed-form assuming a normal distribution.
+
+    $$
+    \text{SCRPS}(F, y) = -\frac{E[|X - y|]}{E[|X - X'|]} - 0.5 \\log \\left( E[|X - X'|] \right)
+                       = \frac{A}{D} + 0.5 \\log(D)
+    $$
+
+    where $X$ and $X'$ are independent random variables drawn from the ensemble distribution, and $F(X)$ is the CDF
+    of the ensemble distribution evaluated at $X$, and $y$ are the ground truth observations.
 
     Note:
         In contrast to the (negatively-oriented) CRPS, the SCRPS can have negative values.

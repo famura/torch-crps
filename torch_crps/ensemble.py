@@ -1,6 +1,6 @@
 import torch
 
-from torch_crps.abstract import crps_abstract
+from torch_crps.abstract import crps_abstract, scrps_abstract
 
 
 def _accuracy_ensemble(
@@ -118,7 +118,7 @@ def crps_ensemble_naive(x: torch.Tensor, y: torch.Tensor, biased: bool = False) 
             The unbiased estimator divides by m * (m - 1).
 
     Returns:
-        The calculated CRPS value for each forecast in the batch, of shape (*batch_shape).
+        The CRPS value for each forecast in the batch, of shape (*batch_shape).
     """
     if x.shape[:-1] != y.shape:
         raise ValueError(f"The batch dimension(s) of x {x.shape[:-1]} and y {y.shape} must be equal!")
@@ -136,10 +136,10 @@ def crps_ensemble_naive(x: torch.Tensor, y: torch.Tensor, biased: bool = False) 
 def crps_ensemble(x: torch.Tensor, y: torch.Tensor, biased: bool = False) -> torch.Tensor:
     r"""Computes the Continuous Ranked Probability Score (CRPS) for an ensemble forecast.
 
-    This implementation uses the equalities
+    This function implements
 
     $$
-    CRPS(F, y) = E[|X - y|] - 0.5 E[|X - X'|] = E[|X - y|] + E[X] - 2 E[X F(X)]
+    \text{CRPS}(F, y) = E[|X - y|] - 0.5 E[|X - X'|] = E[|X - y|] + E[X] - 2 E[X F(X)]
     $$
 
     where $X$ and $X'$ are independent random variables drawn from the ensemble distribution, and $F(X)$ is the CDF
@@ -170,7 +170,7 @@ def crps_ensemble(x: torch.Tensor, y: torch.Tensor, biased: bool = False) -> tor
             unbiased estimator which instead divides by m * (m - 1).
 
     Returns:
-        The calculated CRPS value for each forecast in the batch, of shape (*batch_shape).
+        The CRPS value for each forecast in the batch, of shape (*batch_shape).
     """
     if x.shape[:-1] != y.shape:
         raise ValueError(f"The batch dimension(s) of x {x.shape[:-1]} and y {y.shape} must be equal!")
@@ -183,3 +183,48 @@ def crps_ensemble(x: torch.Tensor, y: torch.Tensor, biased: bool = False) -> tor
 
     # CRPS value := A - 0.5 * D
     return crps_abstract(accuracy, dispersion)
+
+
+def scrps_ensemble(x: torch.Tensor, y: torch.Tensor, biased: bool = False) -> torch.Tensor:
+    r"""Computes the Scaled Continuous Ranked Probability Score (SCRPS) for an ensemble forecast.
+
+    $$
+    \text{SCRPS}(F, y) = -\frac{E[|X - y|]}{E[|X - X'|]} - 0.5 \log \left( E[|X - X'|] \right)
+                       = \frac{A}{D} + 0.5 \log(D)
+    $$
+
+    where $X$ and $X'$ are independent random variables drawn from the ensemble distribution, and $F(X)$ is the CDF
+    of the ensemble distribution evaluated at $X$, and $y$ are the ground truth observations.
+
+    It is designed to be fully vectorized and handle any number of leading batch dimensions in the input tensors,
+    as long as they are equal for `x` and `y`.
+
+    See Also:
+        Bolin & Wallin; "Local scale invariance and robustness of proper scoring rules"; 2019.
+
+    Note:
+        This implementation uses an efficient algorithm to compute the dispersion term E[|X - X'|] in O(m log(m))
+        time, where m is the number of ensemble members. This is achieved by sorting the ensemble predictions and using
+        a mathematical identity to compute the mean absolute difference. You can also see this trick
+        [here][https://docs.nvidia.com/physicsnemo/25.11/_modules/physicsnemo/metrics/general/crps.html]
+
+    Args:
+        x: The ensemble predictions, of shape (*batch_shape, dim_ensemble).
+        y: The ground truth observations, of shape (*batch_shape).
+        biased: If True, uses the biased estimator for the dispersion term $D$, i.e., divides by m². If False, uses the
+            unbiased estimator which instead divides by m * (m - 1).
+
+    Returns:
+        The SCRPS value for each forecast in the batch, of shape (*batch_shape).
+    """
+    if x.shape[:-1] != y.shape:
+        raise ValueError(f"The batch dimension(s) of x {x.shape[:-1]} and y {y.shape} must be equal!")
+
+    # Accuracy term A := E[|X - y|]
+    accuracy = _accuracy_ensemble(x, y)
+
+    # Dispersion term D := E[|X - X'|]
+    dispersion = _dispersion_ensemble(x, biased)
+
+    # SCRPS value := A/D + 0.5 * log(D)
+    return scrps_abstract(accuracy, dispersion)

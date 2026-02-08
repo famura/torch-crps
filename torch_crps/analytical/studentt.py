@@ -168,11 +168,11 @@ def scrps_analytical_studentt(
     q: StudentT,
     y: torch.Tensor,
 ) -> torch.Tensor:
-    r"""Compute the (negatively-oriented) scaled CRPS (SCRPS) in closed-form assuming a Student-T distribution.
+    r"""Compute the (negatively-oriented) Scaled CRPS (SCRPS) in closed-form assuming a Student-T distribution.
 
-    The score is calculated as:
     $$
-    \text{SCRPS}(F, y) = \frac{A}{D} + 0.5 \log(D)
+    \text{SCRPS}(F, y) = -\frac{E[|X - y|]}{E[|X - X'|]} - 0.5 \log \left( E[|X - X'|] \right)
+                       = \frac{A}{D} + 0.5 \log(D)
     $$
 
     where:

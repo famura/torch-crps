@@ -42,7 +42,7 @@ def scrps_analytical(
     q: Distribution,
     y: torch.Tensor,
 ) -> torch.Tensor:
-    """Compute the (negatively-oriented, i.e., lower is better) scaled CRPS (SCRPS) in closed-form.
+    """Compute the (negatively-oriented, i.e., lower is better) Scaled CRPS (SCRPS) in closed-form.
 
     Note:
         The input distribution must be either `torch.distributions.Normal` or `torch.distributions.StudentT`.
