@@ -40,7 +40,7 @@ classifiers = [
 dependencies = [
   "torch>=2.7",
 ]
-description = "Implementations of the CRPS using PyTorch"
+description = "PyTorch-based implementations of the Continuously-Ranked Probability Score (CRPS) as well as its locally scale-invariant version (SCRPS)"
 dynamic = ["version"]
 license = "CC-BY-4.0"
 maintainers = [{name = "Fabio Muratore", email = "accounts@famura.net"}]
