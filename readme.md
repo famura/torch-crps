@@ -36,7 +36,7 @@ $$
 \text{CRPS}(F, y) = E[|X - y|] - 0.5 E[|X - X'|] = E[|X - y|] + E[X] - 2 E[X F(X)]
 $$
 
-which can be shortened to 
+which can be shortened to
 
 $$
 \text{CRPS}(F, y) = A - 0.5 D
@@ -56,7 +56,7 @@ $$
 \text{SCRPS}(F, y) = -\frac{E[|X - y|]}{E[|X - X'|]} - 0.5 \log \left( E[|X - X'|] \right)
 $$
 
-which can be shortened to 
+which can be shortened to
 
 $$
 \text{SCRPS}(F, y) = \frac{A}{D} + 0.5 \log(D)
