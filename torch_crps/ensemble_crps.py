@@ -109,7 +109,7 @@ def crps_ensemble(x: torch.Tensor, y: torch.Tensor, biased: bool = True) -> torc
     # --- Accuracy term A := E[|X - y|]
 
     # Compute the mean absolute error across all ensemble members. Unsqueeze the observation for explicit broadcasting.
-    mae = torch.abs(x - y.unsqueeze(-1)).mean(dim=-1)
+    accuracy = torch.abs(x - y.unsqueeze(-1)).mean(dim=-1)
 
     # --- Dispersion term D := E[|X - X'|]
     # This is half the mean absolute difference between all pairs of predictions.
@@ -128,7 +128,7 @@ def crps_ensemble(x: torch.Tensor, y: torch.Tensor, biased: bool = True) -> torc
     denom = m * (m - 1) if not biased else m**2
     half_mean_dispersion = 1 / denom * x_sum  # 2 in numerator here cancels with 0.5 in the next step
 
-    # --- CRPS value := A - 0.5 * D
-    crps_value = mae - half_mean_dispersion  # 0.5 already accounted for above
+    # --- CRPS value := A - D / 2
+    crps_value = accuracy - half_mean_dispersion  # 0.5 already accounted for above
 
     return crps_value

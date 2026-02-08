@@ -1,6 +1,8 @@
 import torch
 from torch.distributions import Normal
 
+from torch_crps.abstract import crps_abstract, scrps_abstract
+
 
 def _accuracy_normal(
     q: Normal,
@@ -60,8 +62,7 @@ def crps_analytical_normal(
     accuracy = _accuracy_normal(q, y)
     dispersion = _dispersion_normal(q)
 
-    crps = accuracy - dispersion / 2
-    return crps
+    return crps_abstract(accuracy, dispersion)
 
 
 def scrps_analytical_normal(
@@ -88,5 +89,4 @@ def scrps_analytical_normal(
     accuracy = _accuracy_normal(q, y)
     dispersion = _dispersion_normal(q)
 
-    scrps = accuracy / dispersion + 0.5 * torch.log(dispersion)
-    return scrps
+    return scrps_abstract(accuracy, dispersion)

@@ -47,9 +47,9 @@ def normalize_by_observation(crps_fcn: Callable) -> Callable:
             abs_max_y = torch.ones(1, device=abs_max_y.device, dtype=abs_max_y.dtype)
 
         # Call the original CRPS function.
-        crps_result = crps_fcn(*args, **kwargs)
+        crps = crps_fcn(*args, **kwargs)
 
         # Normalize the result.
-        return crps_result / abs_max_y
+        return crps / abs_max_y
 
     return wrapper

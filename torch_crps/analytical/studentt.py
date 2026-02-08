@@ -1,6 +1,8 @@
 import torch
 from torch.distributions import StudentT
 
+from torch_crps.abstract import crps_abstract, scrps_abstract
+
 
 def standardized_studentt_cdf_via_scipy(
     z: torch.Tensor,
@@ -37,7 +39,7 @@ def standardized_studentt_cdf_via_scipy(
 
 
 def _accuracy_studentt(q: StudentT, y: torch.Tensor) -> torch.Tensor:
-    r"""Computes the accuracy term A = E[|Y - y|] for the Student-T distribution.
+    r"""Computes the accuracy term $A = E[|Y - y|]$ for the Student-T distribution.
 
     $$
     A = \sigma \left[ z(2F_{\nu}(z) - 1) + 2 \frac{\nu+z^2}{\nu-1} f_{\nu}(z) \right]
@@ -73,7 +75,7 @@ def _accuracy_studentt(q: StudentT, y: torch.Tensor) -> torch.Tensor:
 def _dispersion_studentt(
     q: StudentT,
 ) -> torch.Tensor:
-    r"""Computes the dispersion term D = E[|Y - Y'|] for the Student-T distribution.
+    r"""Computes the dispersion term $D = E[|Y - Y'|]$ for the Student-T distribution.
 
     See Also:
         Jordan et al.; "Evaluating Probabilistic Forecasts with scoringRules"; 2019.
@@ -124,15 +126,19 @@ def crps_analytical_studentt(
 
     For the standardized StudentT distribution:
 
-    $$ \text{CRPS}(F_\nu, z) = z(2F_\nu(z) - 1) + 2f_\nu(z)\frac{\nu + z^2}{\nu - 1}
-    - \frac{2\sqrt{\nu}}{\nu - 1} \frac{B(\frac{1}{2}, \nu - \frac{1}{2})}{B(\frac{1}{2}, \frac{\nu}{2})^2} $$
+    $$
+    \text{CRPS}(F_\nu, z) = z(2F_\nu(z) - 1) + 2f_\nu(z)\frac{\nu + z^2}{\nu - 1}
+        - \frac{2\sqrt{\nu}}{\nu - 1} \frac{B(\frac{1}{2}, \nu - \frac{1}{2})}{B(\frac{1}{2}, \frac{\nu}{2})^2}
+    $$
 
     where $z$ is the standardized value, $F_\nu$ is the CDF, $f_\nu$ is the PDF of the standard StudentT
     distribution, $\nu$ is the degrees of freedom, and $B$ is the beta function.
 
     For the location-scale transformed distribution:
 
-    $$ \text{CRPS}(F_{\nu,\mu,\sigma}, y) = \sigma \cdot \text{CRPS}\left(F_\nu, \frac{y-\mu}{\sigma}\right) $$
+    $$
+    \text{CRPS}(F_{\nu,\mu,\sigma}, y) = \sigma \cdot \text{CRPS}\left(F_\nu, \frac{y-\mu}{\sigma}\right)
+    $$
 
     where $\mu$ is the location parameter, $\sigma$ is the scale parameter, and $y$ is the observation.
 
@@ -155,8 +161,7 @@ def crps_analytical_studentt(
     accuracy = _accuracy_studentt(q, y)
     dispersion = _dispersion_studentt(q)
 
-    crps = accuracy - dispersion / 2
-    return crps
+    return crps_abstract(accuracy, dispersion)
 
 
 def scrps_analytical_studentt(
@@ -166,13 +171,15 @@ def scrps_analytical_studentt(
     r"""Compute the (negatively-oriented) scaled CRPS (SCRPS) in closed-form assuming a Student-T distribution.
 
     The score is calculated as:
-    $$ \text{SCRPS}(F, y) = \frac{A}{D} + 0.5 \cdot \log(D) $$
+    $$
+    \text{SCRPS}(F, y) = \frac{A}{D} + 0.5 \log(D)
+    $$
 
     where:
     - $F_{\nu, \mu, \sigma^2}$ is the cumulative Student-T distribution, and $F_{\nu}$ is the standardized version.
     - $A = E_F[|X - y|]$ is the accuracy term.
     - $A = \sigma [ z(2 F_{\nu}(z) - 1) +  2(\nu + z²) / (\nu*B(\nu/2, 1/2)) * F_{\nu+1}(z * \sqrt{(\nu+1)/(\nu+z²)}) ]$
-    - $D = E_F[|X - X'|]$ is the cispersion term.
+    - $D = E_F[|X - X'|]$ is the dispersion term.
     - $D = \frac{ 4\sigma }{ \nu-1 } * ( \frac{ \Gamma( \nu/2 ) }{ \Gamma( (\nu-1)/2) } )^2}$
 
     Note:
@@ -194,5 +201,4 @@ def scrps_analytical_studentt(
     accuracy = _accuracy_studentt(q, y)
     dispersion = _dispersion_studentt(q)
 
-    scrps = accuracy / dispersion + torch.log(dispersion) / 2
-    return scrps
+    return scrps_abstract(accuracy, dispersion)
