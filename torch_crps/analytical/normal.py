@@ -72,8 +72,8 @@ def scrps_analytical_normal(
     r"""Compute the (negatively-oriented) Scaled CRPS (SCRPS) in closed-form assuming a normal distribution.
 
     $$
-    \text{SCRPS}(F, y) = -\frac{E[|X - y|]}{E[|X - X'|]} - 0.5 \\log \\left( E[|X - X'|] \right)
-                       = \frac{A}{D} + 0.5 \\log(D)
+    \text{SCRPS}(F, y) = -\frac{E[|X - y|]}{E[|X - X'|]} - 0.5 \log \left( E[|X - X'|] \right)
+                       = \frac{A}{D} + 0.5 \log(D)
     $$
 
     where $X$ and $X'$ are independent random variables drawn from the ensemble distribution, and $F(X)$ is the CDF

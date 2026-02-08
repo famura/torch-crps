@@ -176,11 +176,12 @@ def scrps_analytical_studentt(
     $$
 
     where:
+
     - $F_{\nu, \mu, \sigma^2}$ is the cumulative Student-T distribution, and $F_{\nu}$ is the standardized version.
     - $A = E_F[|X - y|]$ is the accuracy term.
     - $A = \sigma [ z(2 F_{\nu}(z) - 1) +  2(\nu + z²) / (\nu*B(\nu/2, 1/2)) * F_{\nu+1}(z * \sqrt{(\nu+1)/(\nu+z²)}) ]$
     - $D = E_F[|X - X'|]$ is the dispersion term.
-    - $D = \frac{ 4\sigma }{ \nu-1 } * ( \frac{ \Gamma( \nu/2 ) }{ \Gamma( (\nu-1)/2) } )^2}$
+    - $D = \frac{ 4\sigma }{ \nu-1 } * ( \frac{ \Gamma( \nu/2 ) }{ \Gamma( (\nu-1)/2) } )^2$
 
     Note:
         This formula is only valid for degrees of freedom $\nu > 1$.
