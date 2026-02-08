@@ -1,7 +1,7 @@
 from .analytical import crps_analytical, scrps_analytical
 from .analytical.normal import crps_analytical_normal, scrps_analytical_normal
 from .analytical.studentt import crps_analytical_studentt, scrps_analytical_studentt
-from .ensemble import crps_ensemble, crps_ensemble_naive
+from .ensemble import crps_ensemble, crps_ensemble_naive, scrps_ensemble
 from .integral import crps_integral
 from .normalization import (
     crps_analytical_normal_obsnormalized,
@@ -26,4 +26,5 @@ __all__ = [
     "scrps_analytical",
     "scrps_analytical_normal",
     "scrps_analytical_studentt",
+    "scrps_ensemble",
 ]
