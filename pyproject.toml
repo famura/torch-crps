@@ -75,9 +75,9 @@ distance-dirty = "{base_version}"
 
 [tool.mypy]
 ignore_missing_imports = true # when no stubs are available, e.g. for matplotlib or tabulate
-pretty = true
-show_error_context = true
-show_traceback = true
+pretty = true 
+show_error_context = true 
+show_traceback = true 
 
 [tool.pytest.ini_options]
 addopts = [
@@ -146,6 +146,9 @@ ignore = [
 preview = true
 
 [tool.ruff.lint.per-file-ignores]
+"examples/*" = [
+  "S101", # use of assert detected
+]
 "tests/*" = [
   "ANN201", # return type information
   "D", # pydocstyle
