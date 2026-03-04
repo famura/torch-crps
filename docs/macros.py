@@ -1,4 +1,5 @@
 import logging
+import shutil
 from contextlib import redirect_stdout
 from os import devnull
 from pathlib import Path
@@ -23,7 +24,7 @@ PIP_LICENSES_CLI_ARGS = (
 def define_env(env: MacrosPlugin) -> None:
     """Define macros for the mkdocs environment.
 
-    They can be used in the markdown files like this `{{ my_macro() }}`.
+    They can be used in the markdown files, e.g. like this `{{ my_macro() }}`.
 
     Args:
         env: The mkdocs macros environment.
@@ -57,6 +58,7 @@ def define_env(env: MacrosPlugin) -> None:
             return line
 
         lines = [_replace_url(line, pattern="docs/", replace_pattern="./") for line in lines]
+        lines = [line.replace("examples/", "exported/") for line in lines]
         lines = [
             _replace_url(
                 line,
@@ -101,6 +103,14 @@ def define_env(env: MacrosPlugin) -> None:
 def on_post_build(env: MacrosPlugin) -> None:
     """Create additional files."""
     site_dir = Path(env.conf["site_dir"])
+
+    # Ensure the exported directory exists.
+    exported_site_dir = site_dir / "exported"
+    exported_site_dir.mkdir(parents=True, exist_ok=True)
+
+    # Visualization images referenced from the readme.
+    for png in Path("examples").glob("visualization_*.png"):
+        shutil.copy2(png, exported_site_dir / png.name)
 
     # Coverage badge
     fn = Path("coverage.xml")

@@ -8,6 +8,7 @@ clearly a local optimum, in more scenarios than the CRPS loss.
 """
 
 import pathlib
+from typing import Literal
 
 import matplotlib.pyplot as plt
 import numpy
@@ -15,11 +16,9 @@ import seaborn
 import torch
 from matplotlib.figure import Figure
 
-from torch_crps.analytical import crps_analytical
+from torch_crps import crps_analytical, scrps_analytical
 
 EXAMPLES_DIR = pathlib.Path(pathlib.Path(__file__).parent)
-
-torch.set_default_dtype(torch.float32)
 
 
 class SimpleDistributionalModel(torch.nn.Module):
@@ -100,7 +99,7 @@ def simple_training(
     packed_targets: torch.Tensor,
     dataset_name: str,
     normalize_data: bool,
-    use_crps: bool,
+    score_fcn: Literal["nll", "crps", "scrps"],
     device: torch.device,
 ) -> None:
     """A bare bones training loop for the time series model that works on windowed data.
@@ -113,7 +112,7 @@ def simple_training(
         packed_targets: Target tensor of shape (num_samples, dim_output).
         dataset_name: Name of the dataset.
         normalize_data: Whether the data is normalized.
-        use_crps: If True, use CRPS loss. If false, use negative log-likelihood loss.
+        score_fcn: Which scoring function to use:  "nll", "crps", or "scrps".
         device: Device to run training on.
     """
     # Move data to device.
@@ -123,7 +122,7 @@ def simple_training(
     # Use a simple heuristic for the optimization hyper-parameters.
     if dataset_name == "monthly_sunspots":
         if normalize_data:
-            num_epochs = 3001
+            num_epochs = 4001
             lr = 3e-3
         else:
             # The data is in [0, 100] so we need more steps.
@@ -144,8 +143,10 @@ def simple_training(
         packed_predictions = model(packed_inputs)
 
         # Compute the loss, lower is better in both cases.
-        if use_crps:
+        if score_fcn == "crps":
             loss = crps_analytical(packed_predictions, packed_targets).mean()
+        elif score_fcn == "scrps":
+            loss = scrps_analytical(packed_predictions, packed_targets).mean()
         else:
             loss = -packed_predictions.log_prob(packed_targets).mean()
 
@@ -239,7 +240,7 @@ def plot_results(
     if dataset_name not in ("monthly_sunspots", "mackey_glass"):
         raise NotImplementedError(f"Unknown dataset {dataset_name}! Please specify the necessary parts in the script.")
 
-    fig, axs = plt.subplots(2, 1, figsize=(16, 9))
+    fig, axs = plt.subplots(2, 1, figsize=(16, 10))
 
     # Plot training data and predictions.
     axs[0].plot(data_trn, label="data train")
@@ -277,12 +278,14 @@ def plot_results(
 
 if __name__ == "__main__":
     seaborn.set_theme()
+
+    torch.set_default_dtype(torch.float32)
     torch.manual_seed(0)
 
     # Configure.
     normalize_data = True  # scales the data to be in [-1, 1] (recommended for monthly_sunspots dataset)
     dataset_name = "monthly_sunspots"  # monthly_sunspots or mackey_glass
-    use_crps = True  # if True, use CRPS loss instead of NLL
+    score_fcn: Literal["nll", "crps", "scrps"] = "scrps"
     len_window = 10  # tested 10 and 20
     dim_hidden = 64
 
@@ -292,7 +295,7 @@ if __name__ == "__main__":
 
     # Prepare the data.
     data_trn, data_tst = load_and_split_data(dataset_name, normalize_data)
-    dim_data = data_trn.size(1)
+    num_training_samples, dim_data = data_trn.size(0), data_trn.size(1)
 
     # Create the model and move to device
     model = SimpleDistributionalModel(dim_input=dim_data, dim_output=dim_data, hidden_size=dim_hidden)
@@ -305,7 +308,7 @@ if __name__ == "__main__":
     # i i ... t
     inputs = []
     targets = []
-    for idx in range(len_window, data_trn.size(0)):
+    for idx in range(len_window, num_training_samples):
         # Slice the input.
         idx_begin = max(idx - len_window, 0)
         inp = data_trn[idx_begin:idx, :].view(-1, dim_data)
@@ -329,7 +332,7 @@ if __name__ == "__main__":
         packed_targets,
         dataset_name=dataset_name,
         normalize_data=normalize_data,
-        use_crps=use_crps,
+        score_fcn=score_fcn,
         device=device,
     )
 
@@ -347,6 +350,5 @@ if __name__ == "__main__":
         predictions_tst_mean,
         predictions_tst_std,
     )
-    loss_name = "crps" if use_crps else "nll"
-    plt.savefig(EXAMPLES_DIR / f"time_series_learning_{dataset_name}_{loss_name}.png", dpi=300)
-    print(f"Figure saved to {EXAMPLES_DIR / f'time_series_learning_{dataset_name}.png'}")
+    fig.savefig(EXAMPLES_DIR / f"time_series_learning_{dataset_name}_{score_fcn}.png", dpi=300)
+    print(f"Figure saved to {EXAMPLES_DIR / f'time_series_learning_{dataset_name}_{score_fcn}.png'}")
