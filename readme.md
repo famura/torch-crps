@@ -66,6 +66,15 @@ The scale-invariance, i.e., the SCRPS value does not depend on the magnitude of 
 
 Note that the SCRPS can, in contrast to the CRPS, yield negative values.
 
+### Visualization
+
+<table>
+  <tr>
+    <td><img src="examples/visualization_gamma.png" height="300" alt="Visualization showing NLL, CRPS, and SCRPS"></td>
+    <td><img src="examples/visualization_normal.png" height="300" alt="Visualization showing the scale (in)variance"></td>
+  </tr>
+</table>
+
 ### Incomplete list of sources that I came across while researching about the CRPS
 
 - Hersbach, "Decomposition of the Continuous Ranked Probability Score for Ensemble Prediction Systems"; 2000

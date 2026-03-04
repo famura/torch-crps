@@ -1,4 +1,5 @@
 import logging
+import shutil
 from contextlib import redirect_stdout
 from os import devnull
 from pathlib import Path
@@ -23,11 +24,14 @@ PIP_LICENSES_CLI_ARGS = (
 def define_env(env: MacrosPlugin) -> None:
     """Define macros for the mkdocs environment.
 
-    They can be used in the markdown files like this `{{ my_macro() }}`.
+    They can be used in the markdown files, e.g. like this `{{ my_macro() }}`.
 
     Args:
         env: The mkdocs macros environment.
     """
+    # Ensure that the exported directory exists, e.g. for copying example images and badges.
+    exported_dir = Path("docs/exported")
+    exported_dir.mkdir(parents=True, exist_ok=True)
 
     @env.macro
     def make_changelog() -> str:
@@ -44,6 +48,12 @@ def define_env(env: MacrosPlugin) -> None:
         return create_output_string(args=create_parser().parse_args(args=PIP_LICENSES_CLI_ARGS))
 
     @env.macro
+    def copy_example_images() -> None:
+        """Copy example images to docs/exported/ so mkdocs can resolve them."""
+        for png in Path("examples").glob("*.png"):
+            shutil.copy2(png, exported_dir / png.name)
+
+    @env.macro
     def make_readme() -> str:
         """Return a version of the original project readme.md with updated paths."""
         with open("readme.md", encoding="utf-8") as file:
@@ -56,7 +66,10 @@ def define_env(env: MacrosPlugin) -> None:
                     line = line[:-1] + ".md\n"
             return line
 
+        copy_example_images()
+
         lines = [_replace_url(line, pattern="docs/", replace_pattern="./") for line in lines]
+        lines = [line.replace("examples/", "exported/") for line in lines]
         lines = [
             _replace_url(
                 line,
