@@ -10,6 +10,7 @@ from torch_crps.analytical import crps_analytical, scrps_analytical
 from torch_crps.analytical.normal import crps_analytical_normal, scrps_analytical_normal
 from torch_crps.analytical.studentt import (
     crps_analytical_studentt,
+    scrps_analytical_studentt,
 )
 
 
@@ -171,3 +172,22 @@ def test_analytical_crps_studentt_consistency():
 
     # Assert that both methods give the same result.
     assert torch.allclose(crps_old, crps_new, atol=1e-6), "CRPS values from both methods should match."
+
+
+@pytest.mark.parametrize(
+    "df",
+    [
+        pytest.param(torch.tensor(0.5), id="df=0.5"),
+        pytest.param(torch.tensor(1.0), id="df=1.0"),
+        pytest.param(torch.tensor([2.0, 0.9, 3.0]), id="batch_one_below_1"),
+        pytest.param(torch.tensor([1.0, 2.0]), id="batch_one_at_1"),
+    ],
+)
+@pytest.mark.parametrize("crps_fcn", [crps_analytical_studentt, scrps_analytical_studentt], ids=["CRPS", "SCRPS"])
+def test_studentt_df_leq_1_raises(df: torch.Tensor, crps_fcn: Callable[..., torch.Tensor]):
+    """Test that both studentt score functions raise ValueError when any df <= 1."""
+    q = StudentT(df=df, loc=torch.zeros_like(df), scale=torch.ones_like(df))
+    y = torch.zeros_like(df)
+
+    with pytest.raises(ValueError, match="degrees of freedom > 1"):
+        crps_fcn(q, y)
