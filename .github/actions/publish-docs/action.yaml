@@ -29,4 +29,5 @@ runs:
       run: |
         git fetch origin gh-pages:gh-pages
         uv run --only-dev mike deploy --push --update-aliases ${{ env.DOCS_VERSION }} ${{ inputs.alias }}
+        uv run --only-dev mike set-default --push ${{ inputs.alias }}
       shell: sh
