@@ -75,6 +75,13 @@ Note that the SCRPS can, in contrast to the CRPS, yield negative values.
   </tr>
 </table>
 
+The left figure shows the NLL, CRPS, and SCRPS evaluated on a grid for a Gamma distribution.
+Since there is no closed-form solution for the Gamma distribution (in this or any other package I know), the CRPS and
+SCRPS values have been estimated from 2000 samples.
+
+The figure on the right show how the NLL and CRPS depend on the scale of the problem, while the SCRPS does not.
+Since there is a closed-form solutions for the Normal distribution, all scores are exact for this example.
+
 ### Incomplete list of sources that I came across while researching about the CRPS
 
 - Hersbach, "Decomposition of the Continuous Ranked Probability Score for Ensemble Prediction Systems"; 2000
