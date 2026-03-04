@@ -285,7 +285,7 @@ if __name__ == "__main__":
     # Configure.
     normalize_data = True  # scales the data to be in [-1, 1] (recommended for monthly_sunspots dataset)
     dataset_name = "monthly_sunspots"  # monthly_sunspots or mackey_glass
-    score_fcn = "scrps"  # "nll", "crps", or "scrps"
+    score_fcn: Literal["nll", "crps", "scrps"] = "scrps"
     len_window = 10  # tested 10 and 20
     dim_hidden = 64
 
