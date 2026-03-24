@@ -42,7 +42,7 @@ dependencies = [
 ]
 description = "PyTorch-based implementations of the Continuously-Ranked Probability Score (CRPS) as well as its locally scale-invariant version (SCRPS)"
 dynamic = ["version"]
-license = "CC-BY-4.0"
+license = "BSD-3-Clause"
 maintainers = [{name = "Fabio Muratore", email = "accounts@famura.net"}]
 name = "torch-crps"
 readme = "readme.md"

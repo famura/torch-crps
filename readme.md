@@ -1,6 +1,6 @@
 # torch-crps
 
-[![License: CC-BY-4.0][license-badge]][license-url]
+[![License: BSD-3-Clause][license-badge]][license-url]
 ![python][python-badge]<space>
 [![Docs][docs-badge]][docs]
 [![CD][cd-badge]][cd]
@@ -135,8 +135,8 @@ inspiring to read.
 [coverage]: https://famura.github.io/torch-crps/latest/exported/coverage/index.html
 [docs-badge]: https://img.shields.io/badge/Docs-gh--pages-informational
 [docs]: https://famura.github.io/torch-crps
-[license-badge]: https://img.shields.io/badge/License-CC--BY--4.0%20-blue.svg
-[license-url]: https://creativecommons.org/licenses/by/4.0
+[license-badge]: https://img.shields.io/badge/license-BSD--3--Clause-blue.svg
+[license-url]: https://opensource.org/license/bsd-3-clause
 [mkdocs-material-badge]: https://img.shields.io/badge/Material_for_MkDocs-526CFE?logo=MaterialForMkDocs&logoColor=white
 [mkdocs-material]: https://github.com/squidfunk/mkdocs-material
 [mypy-badge]: https://www.mypy-lang.org/static/mypy_badge.svg
