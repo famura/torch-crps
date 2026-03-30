@@ -30,7 +30,7 @@ jobs:
                   uv run --only-dev mike delete --push ${VERSION}
 
             - name: Remove docs comment
-              uses: marocchino/sticky-pull-request-comment@v2.9.4
+              uses: marocchino/sticky-pull-request-comment@v3.0.2
               with:
                   delete: true
                   header: docs-comment
