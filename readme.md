@@ -30,7 +30,9 @@ $$
 
 where $1$ denoted the indicator function.
 
-In Section 2 of this [paper][crps-folumations] Zamo & Naveau list 3 different formulations of the CRPS. One of them is
+In Section 2 of this [paper][crps-folumations] Zamo & Naveau list 3 different formulations of the
+(negatively-oriented, i.e., the lower the better) CRPS.
+One of them is
 
 $$
 \text{CRPS}(F, y) = E[|X - y|] - 0.5 E[|X - X'|] = E[|X - y|] + E[X] - 2 E[X F(X)]
@@ -50,10 +52,10 @@ The SCRPS is a locally scale-invariant version of the CRPS.
 In their [paper][scrps-paper], Bolling & Wallin define it in a positively-oriented, i.e., higher is better.
 In contrast, I implement the SCRPS in this repo negatively-oriented, just like a loss function.
 
-Oversimplifying the notation, the (negatively-oriented) SCRPS can be written as
+Oversimplifying the notation, the (negatively-oriented, i.e., the lower the better) SCRPS can be written as
 
 $$
-\text{SCRPS}(F, y) = -\frac{E[|X - y|]}{E[|X - X'|]} - 0.5 \log \left( E[|X - X'|] \right)
+\text{SCRPS}(F, y) = \frac{E[|X - y|]}{E[|X - X'|]} + 0.5 \log \left( E[|X - X'|] \right)
 $$
 
 which can be shortened to

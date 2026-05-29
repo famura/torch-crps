@@ -7,7 +7,7 @@ def _accuracy_ensemble(
     x: torch.Tensor,
     y: torch.Tensor,
 ) -> torch.Tensor:
-    """Compute accuracy term $A = E[|X - y|]$, i.e., mean absolute error, for an ensemble forecast.
+    r"""Compute accuracy term $A = E[|X - y|]$, i.e., mean absolute error, for an ensemble forecast.
 
     Args:
         x: The ensemble predictions, of shape (*batch_shape, dim_ensemble).
@@ -24,7 +24,7 @@ def _dispersion_ensemble_naive(
     x: torch.Tensor,
     biased: bool,
 ) -> torch.Tensor:
-    """Compute dispersion term $D = E[|X - X'|]$ for an ensemble forecast using a naive O(m²) algorithm.
+    r"""Compute dispersion term $D = E[|X - X'|]$ for an ensemble forecast using a naive O(m²) algorithm.
 
     m is the number of ensemble members.
 
@@ -60,7 +60,7 @@ def _dispersion_ensemble(
     x: torch.Tensor,
     biased: bool,
 ) -> torch.Tensor:
-    """Compute dispersion term $D = E[|X - X'|]$ for an ensemble forecast using an efficient O(m log m) algorithm.
+    r"""Compute dispersion term $D = E[|X - X'|]$ for an ensemble forecast using an efficient O(m log m) algorithm.
 
     m is the number of ensemble members.
 
@@ -93,7 +93,7 @@ def _dispersion_ensemble(
 
 
 def crps_ensemble_naive(x: torch.Tensor, y: torch.Tensor, biased: bool = False) -> torch.Tensor:
-    """Computes the Continuous Ranked Probability Score (CRPS) for an ensemble forecast.
+    r"""Computes the Continuous Ranked Probability Score (CRPS) for an ensemble forecast.
 
     This implementation uses the equality
 
@@ -143,7 +143,7 @@ def crps_ensemble(x: torch.Tensor, y: torch.Tensor, biased: bool = False) -> tor
     $$
 
     where $X$ and $X'$ are independent random variables drawn from the ensemble distribution, and $F(X)$ is the CDF
-    of the ensemble distribution evaluated at $X$.
+    of the ensemble distribution.
 
     It is designed to be fully vectorized and handle any number of leading batch dimensions in the input tensors,
     as long as they are equal for `x` and `y`.
@@ -189,12 +189,12 @@ def scrps_ensemble(x: torch.Tensor, y: torch.Tensor, biased: bool = False) -> to
     r"""Computes the Scaled Continuous Ranked Probability Score (SCRPS) for an ensemble forecast.
 
     $$
-    \text{SCRPS}(F, y) = -\frac{E[|X - y|]}{E[|X - X'|]} - 0.5 \log \left( E[|X - X'|] \right)
+    \text{SCRPS}(F, y) = \frac{E[|X - y|]}{E[|X - X'|]} + 0.5 \log \left( E[|X - X'|] \right)
                        = \frac{A}{D} + 0.5 \log(D)
     $$
 
     where $X$ and $X'$ are independent random variables drawn from the ensemble distribution, and $F(X)$ is the CDF
-    of the ensemble distribution evaluated at $X$, and $y$ are the ground truth observations.
+    of the ensemble distribution, and $y$ are the ground truth observations.
 
     It is designed to be fully vectorized and handle any number of leading batch dimensions in the input tensors,
     as long as they are equal for `x` and `y`.
