@@ -24,7 +24,7 @@ jobs:
                   repo-token: ${{ secrets.GITHUB_TOKEN }}
 
             - name: Label size
-              uses: BedrockStreaming/pr-size-labeler@v2.0.0
+              uses: BedrockStreaming/pr-size-labeler@v3.0.0
               with:
                   token: ${{ secrets.GITHUB_TOKEN }}
                   xs_diff: 20
