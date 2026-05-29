@@ -8,7 +8,14 @@ def _accuracy_normal(
     q: Normal,
     y: torch.Tensor,
 ) -> torch.Tensor:
-    """Compute accuracy term A = E[|X - y|] for a normal distribution.
+    r"""Compute accuracy term $A$ for a normal distribution.
+
+    $$
+    A = E[|X - y|] = \sigma \left( z (2 \Phi(z) - 1) + 2 \phi(z) \right)
+    $$
+
+    where $z = \frac{y - \mu}{\sigma}$ is the standardized value, $\Phi(z)$ is the CDF of the standard normal
+    distribution, and $\phi(z)$ is the PDF of the standard normal distribution.
 
     Args:
         q: A PyTorch Normal distribution object, typically a model's output distribution.
@@ -29,7 +36,11 @@ def _accuracy_normal(
 def _dispersion_normal(
     q: Normal,
 ) -> torch.Tensor:
-    """Compute dispersion term D = E[|X - X'|] for a normal distribution.
+    r"""Compute dispersion term $D$ for a normal distribution.
+
+    $$
+    D = E[|X - X'|] = \frac{2 \sigma}{\sqrt{\pi}}
+    $$
 
     Args:
         q: A PyTorch Normal distribution object, typically a model's output distribution.
@@ -72,12 +83,14 @@ def scrps_analytical_normal(
     r"""Compute the (negatively-oriented) Scaled CRPS (SCRPS) in closed-form assuming a normal distribution.
 
     $$
-    \text{SCRPS}(F, y) = -\frac{E[|X - y|]}{E[|X - X'|]} - 0.5 \log \left( E[|X - X'|] \right)
+    \text{SCRPS}(F, y) = \frac{E[|X - y|]}{E[|X - X'|]} + 0.5 \log \left( E[|X - X'|] \right)
                        = \frac{A}{D} + 0.5 \log(D)
     $$
 
     where $X$ and $X'$ are independent random variables drawn from the ensemble distribution, and $F(X)$ is the CDF
-    of the ensemble distribution evaluated at $X$, and $y$ are the ground truth observations.
+    of the ensemble distribution, and $y$ are the ground truth observations.
+    See [_accuracy_normal](_accuracy_normal) and [_dispersion_normal](_dispersion_normal) for the formulas of the
+    $A$ and $D$ terms for the Normal distribution.
 
     Note:
         In contrast to the (negatively-oriented) CRPS, the SCRPS can have negative values.

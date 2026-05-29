@@ -39,11 +39,14 @@ def standardized_studentt_cdf_via_scipy(
 
 
 def _accuracy_studentt(q: StudentT, y: torch.Tensor) -> torch.Tensor:
-    r"""Computes the accuracy term $A = E[|Y - y|]$ for the Student-T distribution.
+    r"""Computes the accuracy term $A$ for the Student-T distribution.
 
     $$
-    A = \sigma \left[ z(2F_{\nu}(z) - 1) + 2 \frac{\nu+z^2}{\nu-1} f_{\nu}(z) \right]
+    A = E[|Y - y|] = \sigma \left[ z( 2 F_{\nu}(z) - 1 ) + 2 f_{\nu}(z) \frac{\nu+z^2}{\nu-1} \right]
     $$
+
+    where $z = \frac{y - \mu}{\sigma}$ is the standardized value, $F_{\nu}$ is the CDF of the standard Student-T,
+    $f_{\nu}$ is the PDF of the standard Student-T, $\nu$ is the degrees of freedom.
 
     See Also:
         Jordan et al.; "Evaluating Probabilistic Forecasts with scoringRules"; 2019.
@@ -66,16 +69,20 @@ def _accuracy_studentt(q: StudentT, y: torch.Tensor) -> torch.Tensor:
     pdf_z = torch.exp(standard_t.log_prob(z))
 
     # A = sigma * [z * (2*F(z) - 1) + 2*f(z) * (v + z^2) / (v-1) ]
-    accuracy_unscaled = z * (2 * cdf_z - 1) + 2 * pdf_z * (nu + z**2) / (nu - 1)
+    accuracy = sigma * (z * (2 * cdf_z - 1) + 2 * pdf_z * (nu + z**2) / (nu - 1))
 
-    accuracy = sigma * accuracy_unscaled
     return accuracy
 
 
 def _dispersion_studentt(
     q: StudentT,
 ) -> torch.Tensor:
-    r"""Computes the dispersion term $D = E[|Y - Y'|]$ for the Student-T distribution.
+    r"""Computes the dispersion term $D$ for the Student-T distribution.
+
+    $$
+    D = E[|Y - Y'|] = \frac{4\sigma}{\nu - 1} \frac{ \Beta(1/2, \nu - 1/2) }{ \Beta(1/2, \nu/2)^2 }
+      = \frac{ 4\sigma }{ \nu-1 } ( \frac{ \Gamma( \nu/2 ) }{ \Gamma( (\nu-1)/2 ) } )^2$
+    $$
 
     See Also:
         Jordan et al.; "Evaluating Probabilistic Forecasts with scoringRules"; 2019.
@@ -171,17 +178,16 @@ def scrps_analytical_studentt(
     r"""Compute the (negatively-oriented) Scaled CRPS (SCRPS) in closed-form assuming a Student-T distribution.
 
     $$
-    \text{SCRPS}(F, y) = -\frac{E[|X - y|]}{E[|X - X'|]} - 0.5 \log \left( E[|X - X'|] \right)
+    \text{SCRPS}(F, y) = \frac{E[|X - y|]}{E[|X - X'|]} + 0.5 \log \left( E[|X - X'|] \right)
                        = \frac{A}{D} + 0.5 \log(D)
     $$
 
     where:
 
-    - $F_{\nu, \mu, \sigma^2}$ is the cumulative Student-T distribution, and $F_{\nu}$ is the standardized version.
-    - $A = E_F[|X - y|]$ is the accuracy term.
-    - $A = \sigma [ z(2 F_{\nu}(z) - 1) +  2(\nu + z²) / (\nu*B(\nu/2, 1/2)) * F_{\nu+1}(z * \sqrt{(\nu+1)/(\nu+z²)}) ]$
-    - $D = E_F[|X - X'|]$ is the dispersion term.
-    - $D = \frac{ 4\sigma }{ \nu-1 } * ( \frac{ \Gamma( \nu/2 ) }{ \Gamma( (\nu-1)/2) } )^2$
+    where $X$ and $X'$ are independent random variables drawn from the ensemble distribution, and $F(X)$ is the CDF
+    of the ensemble distribution, and $y$ are the ground truth observations.
+    See [_accuracy_studentt](_accuracy_studentt) and [_dispersion_studentt](_dispersion_studentt) for the formulas of
+    the $A$ and $D$ terms for the Student-T distribution.
 
     Note:
         This formula is only valid for degrees of freedom $\nu > 1$.
