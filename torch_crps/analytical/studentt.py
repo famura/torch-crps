@@ -69,7 +69,7 @@ def _accuracy_studentt(q: StudentT, y: torch.Tensor) -> torch.Tensor:
     pdf_z = torch.exp(standard_t.log_prob(z))
 
     # A = sigma * [z * (2*F(z) - 1) + 2*f(z) * (v + z^2) / (v-1) ]
-    accuracy = sigma * z * (2 * cdf_z - 1) + 2 * pdf_z * (nu + z**2) / (nu - 1)
+    accuracy = sigma * (z * (2 * cdf_z - 1) + 2 * pdf_z * (nu + z**2) / (nu - 1))
 
     return accuracy
 
