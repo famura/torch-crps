@@ -46,7 +46,7 @@ jobs:
 
             - name: Add docs comment
               if: github.event_name == 'pull_request' && github.event.pull_request.draft == false
-              uses: marocchino/sticky-pull-request-comment@v3.0.2
+              uses: marocchino/sticky-pull-request-comment@v3.0.4
               with:
                   header: docs-comment
                   message: |
