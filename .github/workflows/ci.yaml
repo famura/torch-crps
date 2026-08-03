@@ -31,7 +31,7 @@ jobs:
 
             - name: Add coverage comment
               if: github.event_name == 'pull_request'
-              uses: MishaKav/pytest-coverage-comment@v1
+              uses: MishaKav/pytest-coverage-comment@v1.10.0
               with:
                   coverage-path-prefix: "torch_crps/"
                   junitxml-path: pytest.xml
