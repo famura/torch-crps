@@ -19,7 +19,7 @@ jobs:
         container: ubuntu:latest
         steps:
             - name: Label areas
-              uses: actions/labeler@v6
+              uses: actions/labeler@v7
               with:
                   repo-token: ${{ secrets.GITHUB_TOKEN }}
 
