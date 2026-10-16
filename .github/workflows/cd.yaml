@@ -36,7 +36,7 @@ jobs:
 
             - name: Bump version and push tag
               id: version
-              uses: mathieudutour/github-tag-action@v6.2
+              uses: mathieudutour/github-tag-action@v7
               with:
                   default_bump: ${{ github.event.inputs.bumped-version-part || 'patch' }}
                   github_token: ${{ secrets.GITHUB_TOKEN }}
